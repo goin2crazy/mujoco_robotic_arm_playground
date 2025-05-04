@@ -69,7 +69,7 @@ if __name__ == "__main__":
     # Configure logging
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     try:
-        model, data = load_model_and_data("egg_test.xml")
+        model, data = load_model_and_data("egg_final.xml")
         visualize_mujoco(model, data)
     except Exception as e:
         logging.critical(f"An error occurred: {e}")  # Log the error and exit
