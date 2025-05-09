@@ -1,113 +1,110 @@
-from utils import * 
-import time 
+from utils import *
+import time
+import numpy as np
 
-
-def check_session_end(model,
-                      data,
-                      start_time,
-                      egg_start_pos,
-                      exclude_lst: list = ["arm_finger_left", "arm_finger_right"],
-                      arm_parts_lst: list = ["base_1",
-                                            "arm_base",
-                                            "arm_base_2",
-                                            "arm_base_2_1",
-                                            "arm_handle",
-                                            "arm_handle_1"],
-                      target_time_start = None):
-    """
-    Checks if the session should end based on time, egg position, and arm contact.
-
-    Args:
-        model: The MuJoCo model.
-        data: The MuJoCo data.
-        start_time: The time when the session started.
-        egg_start_pos: The initial position of the egg.
-        target_time_start: The time when the egg first entered the target.  None if not in target.
-
-    Returns:
-        True if the session should end, False otherwise.
-    """
-
-    # Check if the session has been running for more than 5 minutes (300 seconds).
+def check_session_end(model, data, start_time, egg_start_pos, 
+                     exclude_lst=["arm_finger_left", "arm_finger_right"],
+                     arm_parts_lst=["base_1", "arm_base", "arm_base_2",
+                                   "arm_base_2_1", "arm_handle", "arm_handle_1"],
+                     target_time_start=None):
+    """Enhanced session termination with curriculum awareness"""
+    # Timeout check
     if time.time() - start_time > 300 * 60:
         logging.info("Session ended due to time limit.")
-        return True, -65 
+        return True, -65
 
-    # Check if the egg is too far away from its starting position.
+    # Egg distance check
     egg_id = get_body_id(model, "egg")
-    if egg_id != -1:  # check if the egg_id is valid
-        egg_pos = data.xpos[egg_id][:2]  # Get the X and Y coordinates
-        distance = np.linalg.norm(egg_pos - egg_start_pos)
-        if distance > 5:  # If the egg is more than 5 meters away
-            logging.info("Session ended: Egg is too far from start.")
-            return True, -65 
+    if egg_id != -1:
+        egg_pos = data.xpos[egg_id][:2]
+        if np.linalg.norm(egg_pos - egg_start_pos) > 5:
+            logging.info("Session ended: Egg too far from start.")
+            return True, -65
 
-    # Check if any children of the base (excluding fingers) are touching the floor.
+    # Arm collision check
     for body_name in arm_parts_lst:
-        if body_name not in exclude_lst:  # Added base, shoulder, elbow, wrist
-            if check_contact(model, data, "floor", body_name):
-                logging.info(f"Session ended: {body_name} is touching the floor.")
-                return True, -50
+        if body_name not in exclude_lst and check_contact(model, data, "floor", body_name):
+            logging.info(f"Session ended: {body_name} touched floor.")
+            return True, -50
 
-    # Check if the egg has been in the target for more than 10 seconds.
+    # Target success check
     if egg_in_target(model, data):
-        if target_time_start is None:
-            # The egg just entered the target, record the time.
-            target_time_start = time.time()
-        elif time.time() - target_time_start > 10:
-            # The egg has been in the target for more than 10 seconds.
-            logging.info("Session ended: Egg is in target for too long.")
+        target_time_start = target_time_start or time.time()
+        if time.time() - target_time_start > 10:
+            logging.info("Session ended: Successful placement.")
             return True, 100
     else:
-        # The egg is not in the target, reset the timer.
         target_time_start = None
 
-    return False, 0 
+    return False, 0
 
-
-
-def reward_function(model, data, prev_dist, *args, **kwargs):
+def reward_function(model, data, prev_dist, mode="grasp", *args, **kwargs):
     """
-    Calculates the reward for the current state.
-
-    Args:
-        model: The MuJoCo model.
-        data: The MuJoCo data.
-        prev_dist: Previous distance between the egg and the target.
-        egg_start_pos: The initial position of the egg
-
-    Returns:
-        The reward for the current state.
+    Mode-based reward function with curriculum learning
+    
+    Modes:
+    - 'grasp': Focus on initial contact and pickup
+    - 'lift': Focus on vertical elevation
+    - 'transport': Focus on horizontal movement
+    - 'final': Full task with all components
     """
     reward = 0
-
-    # Get body IDs
     egg_id = get_body_id(model, "egg")
     target_id = get_body_id(model, "egg_base_target")
+    
+    # Common metrics
+    contact = egg_at_the_holding(model, data)
+    egg_height = data.xpos[egg_id][2] if egg_id != -1 else 0
+    current_dist = np.linalg.norm(data.xpos[egg_id][:2] - data.xpos[target_id][:2]) \
+        if (egg_id != -1 and target_id != -1) else prev_dist
 
-    # 1. Initial Reward/Penalty
-    if egg_at_the_start(model, data):
-        reward += 0.1
-    elif not egg_at_the_holding(model,data) and not egg_at_the_start(model,data):
-        reward -= 0.1
+    # Mode-specific rewards
+    if mode == "grasp":
+        # Focus on initial contact and grip maintenance
+        reward += 2.0 * contact  # Strong contact incentive
+        reward -= 0.2 * (1 - contact)  # Penalize breaking contact
+        reward += 0.05 * egg_height  # Small lift encouragement
+        reward += 0.1 / (current_dist + 0.1)  # Inverse distance bonus
+        
+    elif mode == "lift":
+        # Focus on vertical elevation and stability
+        reward += 1.0 * contact  # Maintain contact
+        reward += 0.5 * egg_height  # Direct height reward
+        reward -= 0.1 * abs(data.qvel[model.joints]).mean()  # Velocity penalty
+        reward -= 0.02 * current_dist  # Mild distance penalty
+        
+    elif mode == "transport":
+        # Focus on horizontal movement and positioning
+        reward += 0.5 * contact  # Maintain grip
+        reward += 0.3 * egg_height  # Maintain height
+        reward += 0.5 * (prev_dist - current_dist)  # Movement bonus
+        reward -= 0.005 * np.linalg.norm(data.ctrl)  # Control effort penalty
+        
+    elif mode == "final":
+        # Full task with balanced components
+        reward += 1.0 * contact
+        reward += 0.4 * egg_height
+        reward += 0.7 * (prev_dist - current_dist)
+        reward -= 0.01 * np.linalg.norm(data.qacc)  # Acceleration penalty
+        reward -= 0.002 * np.linalg.norm(data.ctrl)  # Control effort
+        
+    # Common penalties
     if egg_on_the_floor(model, data):
-        reward -= 1.0
-
-    # 2. Manipulation Rewards
-    reward -= 0.01  # Small negative reward per step to encourage speed
-    if egg_at_the_holding(model, data):
-        reward += 0.2
-        if egg_id != -1:
-          reward += 0.1 * data.xpos[egg_id][2]  # Reward for lifting egg
-
-    # 3. Navigation Reward
-    if egg_id != -1 and target_id != -1:
-        current_dist = np.linalg.norm(data.xpos[egg_id][:2] - data.xpos[target_id][:2])
-        reward += 0.02 * (prev_dist - current_dist)
-
-    # 4. Task Completion Reward
-    if egg_in_target(model, data):
-        reward += 100.0
-    reward -= 0.001 # Small penalty per step
+        reward -= 2.0  # Strong floor penalty
+    
+    # Curriculum progression bonuses
+    if mode != "final":
+        # Encourage reaching next stage
+        if egg_height > 0.5 and mode in ["grasp", "lift"]:
+            reward += 1.0
+        if current_dist < 0.5 and mode == "transport":
+            reward += 2.0
+            
+    # Sparse rewards (only in final mode)
+    if mode == "final":
+        if egg_in_target(model, data):
+            reward += 100.0  # Completion bonus
+        elif egg_on_the_floor(model, data):
+            reward -= 50.0  # Failure penalty
 
     return reward, current_dist
