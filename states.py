@@ -84,12 +84,12 @@ def reward_function(model, data, prev_dist, mode="all", *args, **kwargs):
     if egg_at_the_holding(model, data):
         reward += s["hold"] * 0.2
         if egg_id != -1:
-            reward += s["hold"] * 0.1 * data.xpos[egg_id][2]
+            reward += s["hold"] * 30 * data.xpos[egg_id][2]
 
     # 🚚 Transport rewards
     if egg_id != -1 and target_id != -1:
         current_dist = np.linalg.norm(data.xpos[egg_id][:2] - data.xpos[target_id][:2])
-        reward += s["transport"] * 0.02 * (prev_dist - current_dist)
+        reward += s["transport"] * 50 * (prev_dist - current_dist)
 
     # 🎯 Task completion
     if egg_in_target(model, data):
