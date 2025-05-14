@@ -56,15 +56,16 @@ def reward_function_grasp(model, data, prev_dist, mode="all", *args, **kwargs):
     distance_fingers_egg_left = sum([(egg_pos - fing_pos) ** 2 for egg_pos, fing_pos in 
                                 zip(data.xpos[egg_id], data.xpos[left_fing_id])]) ** 0.5
 
-    reward -=distance_fingers_egg_right
-    reward -=distance_fingers_egg_left
+    distance_sum = distance_fingers_egg_right + distance_fingers_egg_left
+    reward -= distance_sum
+
 
     # In python True in bool = 1 and False = 0
     reward -= 100 * egg_on_the_floor(model, data)
 
     reward += 20 * check_contact(model, data, "floor", "arm_finger_right")
     reward += 20 * check_contact(model, data, "floor", "arm_finger_left")
-    return reward
+    return reward, distance_sum
 
 def roughness_penalty(actions, max_value=1.0, min_value=-1.0, diff_weight=1.0, extreme_weight=1.0):
     """
