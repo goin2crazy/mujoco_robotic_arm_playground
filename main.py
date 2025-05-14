@@ -44,7 +44,7 @@ def visualize_mujoco(model, data):
 
             # Get and print the observation vector.
             observation = get_observation(model, data)
-            rewards, egg_dist_to_target = reward_function(model, data, prev_dist=egg_dist_to_target) 
+            rewards, egg_dist_to_target = reward_function_grasp(model, data, prev_dist=egg_dist_to_target) 
 
             logging.info(f"Observation: {observation}")
 

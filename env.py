@@ -14,7 +14,11 @@ class MujocoRobotArmEnv(gym.Env):
 
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 60}
 
-    def __init__(self, model_path="your_model.xml", moving_rate=1e-3):  # Add model_path
+    def __init__(self, 
+                 model_path="your_model.xml", 
+                 moving_rate=1e-3,
+                 reward_fn = None 
+                 ):  # Add model_path
         """
         Initializes the environment.
         Args:
@@ -29,7 +33,7 @@ class MujocoRobotArmEnv(gym.Env):
             raise ValueError(f"Error loading MuJoCo model from {model_path}: {e}")
 
         self.data = mujoco.MjData(self.model)
-
+        self.reward_fn = reward_function_grasp if reward_fn ==None else reward_fn
         # Define action and observation spaces.  CRITICAL.
         # Example:  Action space is the joint torque limits.
         # low = self.model.actuator_ctrlrange[:, 0]
@@ -78,7 +82,7 @@ class MujocoRobotArmEnv(gym.Env):
         observation = get_observation(self.model, self.data)
 
         # Calculate the reward.
-        reward, self.current_dist = reward_function(self.model, self.data, prev_dist=self.current_dist, mode='grasp') #TODO prev_dist
+        reward, self.current_dist = self.reward_function(self.model, self.data, prev_dist=self.current_dist, mode='grasp') #TODO prev_dist
 
         # Penalty for motions roughness
         roughtness_penalty = roughness_penalty(action)
