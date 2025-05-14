@@ -17,7 +17,10 @@ class MujocoRobotArmEnv(gym.Env):
     def __init__(self, 
                  model_path="your_model.xml", 
                  moving_rate=1e-3,
-                 reward_fn = None 
+                 reward_fn = None, 
+                 reward_fn_scale =1, 
+                 roughness_penalty_scale=1, 
+                 additional_reward_scale=1, 
                  ):  # Add model_path
         """
         Initializes the environment.
@@ -34,6 +37,11 @@ class MujocoRobotArmEnv(gym.Env):
 
         self.data = mujoco.MjData(self.model)
         self.reward_fn = reward_function_grasp if reward_fn ==None else reward_fn
+
+        
+        self.reward_fn_scale = reward_fn_scale 
+        self.roughness_penalty_scale = roughness_penalty_scale
+        self.additional_reward_scale = additional_reward_scale
         # Define action and observation spaces.  CRITICAL.
         # Example:  Action space is the joint torque limits.
         # low = self.model.actuator_ctrlrange[:, 0]
@@ -82,16 +90,17 @@ class MujocoRobotArmEnv(gym.Env):
         observation = get_observation(self.model, self.data)
 
         # Calculate the reward.
-        reward, self.current_dist = self.reward_function(self.model, self.data, prev_dist=self.current_dist, mode='grasp') #TODO prev_dist
+        reward, self.current_dist = self.reward_fn(self.model, self.data, prev_dist=self.current_dist, mode='grasp') #TODO prev_dist
+        reward = reward * self.reward_fn_scale
 
         # Penalty for motions roughness
         roughtness_penalty = roughness_penalty(action)
-        reward += roughtness_penalty
+        reward += roughtness_penalty * self.roughness_penalty_scale
 
         # Check for the end of the session.
         terminated, additional_reward = check_session_end(self.model, self.data, time.time(), self.egg_start_pos) #TODO start time
 
-        reward += additional_reward
+        reward += additional_reward * self.additional_reward_scale
 
         info = {
             "egg_at_start": egg_at_the_start(self.model, self.data),
