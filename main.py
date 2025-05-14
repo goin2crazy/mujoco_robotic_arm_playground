@@ -62,6 +62,7 @@ def visualize_mujoco(model, data):
 
             if done: 
                 break 
+            
         cv2.destroyAllWindows()
 
 
