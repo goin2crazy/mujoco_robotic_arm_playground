@@ -93,8 +93,6 @@ def roughness_penalty(actions, max_value=1.0, min_value=-1.0, diff_weight=1.0, e
         float: A non-negative value representing the total roughness penalty.
                Higher values indicate rougher actions.
     """
-    if not actions:
-        return 0.0
 
     total_penalty = 0.0
 
