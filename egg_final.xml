@@ -156,9 +156,6 @@
   </worldbody>
 
   <actuator>
-    <!-- this things simulate the servo -->
-    <position name="p_leftfinger" joint="arm_finger_left_joint" kp="500" kv="200"/>
-    <position name="p_rightfinger" joint="arm_finger_right_joint" kp="500" kv="200"/>
 
     <!-- <motor name="m2" joint="base_1_joint" ctrlrange="-1 1" gear="100"/> -->
     <position name="p1" joint="base_1_joint"
@@ -176,6 +173,11 @@
     <!-- <motor name="m2_arm_2" joint="arm_base_2_joint" ctrlrange="-1 1" gear="100"/> -->
     <position name="p1_arm_2" joint="arm_base_2_joint"
           kp="500" kv="200"/>
+      
+    
+    <!-- this things simulate the servo -->
+    <position name="p_leftfinger" joint="arm_finger_left_joint" kp="500" kv="200"/>
+    <position name="p_rightfinger" joint="arm_finger_right_joint" kp="500" kv="200"/>
   </actuator>
 
 </mujoco>

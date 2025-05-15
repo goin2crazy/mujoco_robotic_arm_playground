@@ -11,58 +11,70 @@ from states import *
 
 def visualize_mujoco(model, data):
     """
-    Visualizes the MuJoCo model using OpenCV.
+    Visualizes the MuJoCo model using OpenCV and allows control with keyboard.
     """
-    # Initialize the renderer.
     with mujoco.Renderer(model) as renderer:
         start_time = time.time()
-        egg_start_pos = data.xpos[get_body_id(model, "egg")][:2].copy()  # stores the initial xy position of the egg.
+        egg_start_pos = data.xpos[get_body_id(model, "egg")][:2].copy()
         if np.any(np.isnan(egg_start_pos)):
             egg_start_pos = np.array([0, 0])
 
         egg_dist_to_target = 99999
-        # Main simulation loop
+
+        # Set initial control value
+        control_increment = 0.01  # How much it increases/decreases per keypress
+        min_control = -1.0
+        max_control = 1.0
+
+        reward_counter = 0 
+
         while True:
-            # Simulate the model.
             try:
                 mujoco.mj_step(model, data)
             except Exception as e:
                 logging.error(f"Error in mujoco.mj_step: {e}")
-                break  # Exit the loop on error
+                break
 
-            # Update and render the scene.
             mujoco.mj_forward(model, data)
             renderer.update_scene(data)
-            img = renderer.render()  # Get the rendered image
-
-            # Convert the image to a format OpenCV can use (BGR)
+            img = renderer.render()
             img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-
-            # Display the image using OpenCV
             cv2.imshow("MuJoCo Scene", img_bgr)
-            cv2.waitKey(1)  # 1 millisecond delay for real-time update
 
-            # Get and print the observation vector.
+            # 🧠 Keyboard interaction
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('a'):  # Decrease control
+                data.ctrl = [max(min_control, data.ctrl[0] - control_increment)] + [0] * (len(data.ctrl)-1)
+            elif key == ord('d'):  # Increase control
+                data.ctrl = [min(max_control, data.ctrl[0] + control_increment)]+ [0] * (len(data.ctrl)-1)
+            elif key == ord('q'):  # Exit manually with Q
+                logging.info("Manual exit requested.")
+                break
+
+            # 📝 Observation + Reward logic
             observation = get_observation(model, data)
-            rewards, egg_dist_to_target = reward_function_grasp(model, data, prev_dist=egg_dist_to_target) 
+            rewards, egg_dist_to_target = reward_function_grasp(model, data, prev_dist=egg_dist_to_target)
 
-            logging.info(f"Observation: {observation}")
+            # logging.info(f"Observation: {observation}")
+            # logging.info(f"data.ctrl[0]: {data.ctrl[0]}")
+            # logging.info(f"Egg at the start: {egg_at_the_start(model, data)}")
+            # logging.info(f"Egg on the floor: {egg_on_the_floor(model, data)}")
+            # logging.info(f"Egg at the holding: {egg_at_the_holding(model, data)}")
+            # logging.info(f"Egg in target: {egg_in_target(model, data)}")
 
-            # Print contact information.  Consider using logging here as well.
-            logging.info(f"Egg at the start: {egg_at_the_start(model, data)}")
-            logging.info(f"Egg on the floor: {egg_on_the_floor(model, data)}")
-            logging.info(f"Egg at the holding: {egg_at_the_holding(model, data)}")
-            logging.info(f"Egg in target: {egg_in_target(model, data)}")
+            done, additional_reward = check_session_end(model, data, start_time, egg_start_pos)
+            rewards += additional_reward
 
-            # Check for session end.
-            done, addictional_reward = check_session_end(model, data, start_time, egg_start_pos)
-            rewards += addictional_reward
 
-            logging.info(f"Current rewards: {rewards}")
+            reward_counter +=1 
+            if reward_counter > 100: 
+                reward_counter = 0 
+                logging.info(f"Current rewards: {rewards}")
 
-            if done: 
-                break 
-            
+            if done:
+                logging.info("Episode finished.")
+                break
+
         cv2.destroyAllWindows()
 
 

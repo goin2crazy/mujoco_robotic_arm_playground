@@ -16,7 +16,7 @@ class MujocoRobotArmEnv(gym.Env):
 
     def __init__(self, 
                  model_path="your_model.xml", 
-                 moving_rate=1e-3,
+                 moving_rate=1e-2,
                  reward_fn = None, 
                  reward_fn_scale =1, 
                  roughness_penalty_scale=1, 
@@ -59,7 +59,7 @@ class MujocoRobotArmEnv(gym.Env):
 
         self._time = 0  # Track the current time in the simulation.
         self.egg_start_pos = None # store the initial position of the egg
-        self.current_dist = 9999
+        self.current_dist = 3
         self.moving_rate = moving_rate
 
     def step(self, action):
