@@ -57,7 +57,8 @@ def reward_function_grasp(model, data, prev_dist, mode="all", *args, **kwargs):
                                 zip(data.xpos[egg_id], data.xpos[left_fing_id])]) ** 0.5
 
     distance_sum = distance_fingers_egg_right + distance_fingers_egg_left
-    reward -= distance_sum
+    distance_progress = prev_dist - distance_sum
+    reward += distance_progress
 
 
     # In python True in bool = 1 and False = 0
