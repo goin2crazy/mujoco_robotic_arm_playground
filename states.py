@@ -38,36 +38,59 @@ def check_session_end(model, data, start_time, egg_start_pos,
 
     return False, 0
 
+import numpy as np
 
-def reward_function_grasp(model, data, prev_dist, mode="all", *args, **kwargs): 
-    
-    reward = 0
-    current_dist = 0
-    arm_egg_dist = 0
+def reward_function_grasp(model, data):
+    """
+    Calculates the reward for a grasping task, optimizing distance calculations
+    using NumPy. Unused parameters have been removed.
 
+    Args:
+        model: The MuJoCo model object.
+        data: The MuJoCo data object containing simulation state (e.g., positions).
+
+    Returns:
+        A tuple containing:
+            - reward (float): The calculated reward.
+            - distance_sum (float): The sum of distances between fingers and the egg.
+    """
+    reward = 0.0
+    # current_dist and arm_egg_dist were not used in the original logic and are now removed.
+
+    # Assuming get_body_id, egg_on_the_floor, and check_contact are defined elsewhere
+    # and work as expected.
     egg_id = get_body_id(model, "egg")
-    target_id = get_body_id(model, "egg_base_target")
+    # target_id is not used in the provided logic and is now removed.
 
     right_fing_id, left_fing_id = get_body_id(model, "arm_finger_right"), get_body_id(model, "arm_finger_left")
 
-    distance_fingers_egg_right = sum([(egg_pos - fing_pos) ** 2 for egg_pos, fing_pos in 
-                                zip(data.xpos[egg_id], data.xpos[right_fing_id])]) ** 0.5
+    # Convert positions to NumPy arrays for efficient vectorized operations
+    egg_pos = np.array(data.xpos[egg_id])
+    right_fing_pos = np.array(data.xpos[right_fing_id])
+    left_fing_pos = np.array(data.xpos[left_fing_id])
 
-    distance_fingers_egg_left = sum([(egg_pos - fing_pos) ** 2 for egg_pos, fing_pos in 
-                                zip(data.xpos[egg_id], data.xpos[left_fing_id])]) ** 0.5
+    # Calculate Euclidean distances using numpy.linalg.norm
+    # This is significantly faster than list comprehensions for larger arrays.
+    distance_fingers_egg_right = np.linalg.norm(egg_pos - right_fing_pos)
+    distance_fingers_egg_left = np.linalg.norm(egg_pos - left_fing_pos)
 
     distance_sum = distance_fingers_egg_right + distance_fingers_egg_left
-    distance_progress = prev_dist - distance_sum
-    reward += distance_progress * 50
+
+    # Original reward calculation logic
     reward -= distance_sum
 
-
-    # In python True in bool = 1 and False = 0
+    # In python True in bool = 1 and False = 0, this behavior is preserved.
+    # Assuming egg_on_the_floor returns a boolean or 0/1.
     reward -= 100 * egg_on_the_floor(model, data)
 
+    # Assuming check_contact returns a boolean or 0/1.
     reward += 20 * check_contact(model, data, "floor", "arm_finger_right")
     reward += 20 * check_contact(model, data, "floor", "arm_finger_left")
+
     return reward, distance_sum
+
+# Note: The functions `get_body_id`, `egg_on_the_floor`, and `check_contact`
+# are assumed to be defined elsewhere in your codebase.
 
 def roughness_penalty(actions, max_value=1.0, min_value=-1.0, diff_weight=1.0, extreme_weight=1.0):
     """

@@ -19,7 +19,7 @@ def visualize_mujoco(model, data):
         if np.any(np.isnan(egg_start_pos)):
             egg_start_pos = np.array([0, 0])
 
-        egg_dist_to_target = 99999
+        egg_dist_to_target = 3
 
         # Set initial control value
         control_increment = 0.01  # How much it increases/decreases per keypress
@@ -53,7 +53,7 @@ def visualize_mujoco(model, data):
 
             # 📝 Observation + Reward logic
             observation = get_observation(model, data)
-            rewards, egg_dist_to_target = reward_function_grasp(model, data, prev_dist=egg_dist_to_target)
+            rewards, egg_dist_to_target = reward_function_grasp(model, data)
 
             # logging.info(f"Observation: {observation}")
             # logging.info(f"data.ctrl[0]: {data.ctrl[0]}")

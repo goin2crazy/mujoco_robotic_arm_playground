@@ -90,7 +90,7 @@ class MujocoRobotArmEnv(gym.Env):
         observation = get_observation(self.model, self.data)
 
         # Calculate the reward.
-        reward, self.current_dist = self.reward_fn(self.model, self.data, prev_dist=self.current_dist, mode='grasp') #TODO prev_dist
+        reward, self.current_dist = self.reward_fn(self.model, self.data) #TODO prev_dist
         reward = reward * self.reward_fn_scale
 
         # Penalty for motions roughness
