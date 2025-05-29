@@ -184,6 +184,6 @@ class MujocoRobotArmEnv(gym.Env):
         # Ensure resources are cleaned up.  Important for preventing memory leaks.
         self.close()
 
-
-roboenv_1 = MujocoRobotArmEnv("egg_final.xml")
-check_env(roboenv_1)
+if __name__ == "__main__": 
+    roboenv_1 = MujocoRobotArmEnv("egg_final.xml")
+    check_env(roboenv_1)

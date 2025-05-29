@@ -84,8 +84,8 @@ def reward_function_grasp(model, data):
     reward -= 100 * egg_on_the_floor(model, data)
 
     # Assuming check_contact returns a boolean or 0/1.
-    reward += 20 * check_contact(model, data, "floor", "arm_finger_right")
-    reward += 20 * check_contact(model, data, "floor", "arm_finger_left")
+    reward += 20 * check_contact(model, data, "egg", "arm_finger_right")
+    reward += 20 * check_contact(model, data, "egg", "arm_finger_left")
 
     return reward, distance_sum
 
