@@ -95,7 +95,7 @@ class MujocoRobotArmEnv(gym.Env):
 
         # Penalty for motions roughness
         roughtness_penalty = roughness_penalty(action)
-        reward += roughtness_penalty * self.roughness_penalty_scale
+        reward -= roughtness_penalty * self.roughness_penalty_scale
 
         # Check for the end of the session.
         terminated, additional_reward = check_session_end(self.model, self.data, time.time(), self.egg_start_pos) #TODO start time
