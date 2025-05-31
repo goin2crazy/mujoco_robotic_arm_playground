@@ -13,6 +13,8 @@ def visualize_mujoco(model, data):
     """
     Visualizes the MuJoCo model using OpenCV and allows control with keyboard.
     """
+    print(print(model.jnt_qposadr))
+    print(print(model.jnt_type))
     with mujoco.Renderer(model) as renderer:
         start_time = time.time()
         egg_start_pos = data.xpos[get_body_id(model, "egg")][:2].copy()
@@ -70,6 +72,7 @@ def visualize_mujoco(model, data):
             if reward_counter > 100: 
                 reward_counter = 0 
                 logging.info(f"Current rewards: {rewards}")
+                logging.info(f"Current observations: {observation}")
 
             if done:
                 logging.info("Episode finished.")
