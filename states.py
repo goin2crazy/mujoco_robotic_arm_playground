@@ -77,7 +77,7 @@ def reward_function_grasp(model, data):
     distance_sum = distance_fingers_egg_right + distance_fingers_egg_left
 
     # Original reward calculation logic
-    reward -= distance_sum
+    reward += ( 5 - distance_sum)
 
     # In python True in bool = 1 and False = 0, this behavior is preserved.
     # Assuming egg_on_the_floor returns a boolean or 0/1.
