@@ -14,18 +14,18 @@ def check_session_end(model, data, start_time, egg_start_pos,
         return True, -65
 
     # Egg distance check
-    egg_id = get_body_id(model, "egg")
-    if egg_id != -1:
-        egg_pos = data.xpos[egg_id][:2]
-        if np.linalg.norm(egg_pos - egg_start_pos) > 5:
-            logging.info("Session ended: Egg too far from start.")
-            return True, -65
+    # egg_id = get_body_id(model, "egg")
+    # if egg_id != -1:
+    #     egg_pos = data.xpos[egg_id][:2]
+    #     if np.linalg.norm(egg_pos - egg_start_pos) > 5:
+    #         logging.info("Session ended: Egg too far from start.")
+    #         return True, -65
 
     # Arm collision check
-    for body_name in arm_parts_lst:
-        if body_name not in exclude_lst and check_contact(model, data, "floor", body_name):
-            logging.info(f"Session ended: {body_name} touched floor.")
-            return True, -50
+    # for body_name in arm_parts_lst:
+    #     if body_name not in exclude_lst and check_contact(model, data, "floor", body_name):
+    #         logging.info(f"Session ended: {body_name} touched floor.")
+    #         return True, -50
 
     # Target success check
     if egg_in_target(model, data):
