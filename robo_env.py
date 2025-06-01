@@ -38,7 +38,7 @@ class MujocoRobotArmEnv(gym.Env):
         self.data = mujoco.MjData(self.model)
         self.reward_fn = reward_function_grasp if reward_fn ==None else reward_fn
 
-        
+        self.steps_made_in_episode = 0         
         self.reward_fn_scale = reward_fn_scale 
         self.roughness_penalty_scale = roughness_penalty_scale
         self.additional_reward_scale = additional_reward_scale
@@ -98,7 +98,12 @@ class MujocoRobotArmEnv(gym.Env):
         reward -= roughtness_penalty * self.roughness_penalty_scale
 
         # Check for the end of the session.
-        terminated, additional_reward = check_session_end(self.model, self.data, time.time(), self.egg_start_pos) #TODO start time
+        terminated, additional_reward = check_session_end(self.model, self.data, self.steps_made_in_episode, self.egg_start_pos) #TODO start time
+        
+        if terminated:
+            self.steps_made_in_episode = 0
+        else: 
+            self.steps_made_in_episode+=1 
 
         reward += additional_reward * self.additional_reward_scale
 

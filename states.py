@@ -2,14 +2,14 @@ from utils import *
 import time
 import numpy as np
 
-def check_session_end(model, data, start_time, egg_start_pos, 
+def check_session_end(model, data, steps, egg_start_pos, 
                      exclude_lst=["arm_finger_left", "arm_finger_right"],
                      arm_parts_lst=["base_1", "arm_base", "arm_base_2",
                                    "arm_base_2_1", "arm_handle", "arm_handle_1"],
                      target_time_start=None):
     """Enhanced session termination with curriculum awareness"""
     # Timeout check
-    if time.time() - start_time > 18_000:
+    if steps > 18_000:
         logging.info("Session ended due to time limit.")
         return True, -65
 
