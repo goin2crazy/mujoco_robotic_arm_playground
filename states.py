@@ -22,10 +22,10 @@ def check_session_end(model, data, steps, egg_start_pos,
     #         return True, -65
 
     # Arm collision check
-    # for body_name in arm_parts_lst:
-    #     if body_name not in exclude_lst and check_contact(model, data, "floor", body_name):
-    #         logging.info(f"Session ended: {body_name} touched floor.")
-    #         return True, -50
+    for body_name in arm_parts_lst:
+        if body_name not in exclude_lst and check_contact(model, data, "floor", body_name):
+            logging.info(f"Session ended: {body_name} touched floor.")
+            return False, -10
 
     # Target success check
     if egg_in_target(model, data):
