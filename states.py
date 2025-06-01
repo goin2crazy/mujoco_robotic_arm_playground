@@ -9,7 +9,7 @@ def check_session_end(model, data, start_time, egg_start_pos,
                      target_time_start=None):
     """Enhanced session termination with curriculum awareness"""
     # Timeout check
-    if time.time() - start_time > 300 * 60:
+    if time.time() - start_time > 18_000:
         logging.info("Session ended due to time limit.")
         return True, -65
 
