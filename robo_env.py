@@ -108,11 +108,11 @@ class MujocoRobotArmEnv(gym.Env):
         reward += additional_reward * self.additional_reward_scale
 
         info = {
-            "egg_at_start": egg_at_the_start(self.model, self.data),
-            "egg_on_floor": egg_on_the_floor(self.model, self.data),
-            "egg_at_holding": egg_at_the_holding(self.model, self.data),
-            "egg_in_target": egg_in_target(self.model, self.data),
-            "time": self._time,
+            # "egg_at_start": egg_at_the_start(self.model, self.data),
+            # "egg_on_floor": egg_on_the_floor(self.model, self.data),
+            # "egg_at_holding": egg_at_the_holding(self.model, self.data),
+            # "egg_in_target": egg_in_target(self.model, self.data),
+            # "time": self._time,
         }
 
         # Important:  Return a valid tuple, even if there's an error.

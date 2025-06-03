@@ -34,12 +34,13 @@ def visualize_mujoco_env(env):
 
         # Keyboard interaction for control
         key = cv2.waitKey(1) & 0xFF
-        action_to_take = np.zeros(num_actuators, dtype=np.float32)
+        action_to_take = env.data.ctrl
+        smoothness = 0.01 
 
         if key == ord('a'):  # Decrease first actuator control
-            action_to_take[0] = -1.0
+            action_to_take[0] =  action_to_take[0] + (-1.0*smoothness)
         elif key == ord('d'):  # Increase first actuator control
-            action_to_take[0] = 1.0
+            action_to_take[0] = action_to_take[0] + (1.0*smoothness)
         elif key == ord('q'):  # Exit manually with Q
             logging.info("Manual exit requested. Closing environment.")
             break

@@ -11,7 +11,7 @@ def check_session_end(model, data, steps, egg_start_pos,
     # Timeout check
     if steps > 18_000:
         logging.info("Session ended due to time limit.")
-        return True, -65
+        return True, 0
 
     # Egg distance check
     # egg_id = get_body_id(model, "egg")
@@ -74,10 +74,10 @@ def reward_function_grasp(model, data):
     distance_fingers_egg_right = np.linalg.norm(egg_pos - right_fing_pos)
     distance_fingers_egg_left = np.linalg.norm(egg_pos - left_fing_pos)
 
-    distance_sum = distance_fingers_egg_right + distance_fingers_egg_left
+    distance_mean = (distance_fingers_egg_right + distance_fingers_egg_left)/2 
 
     # Original reward calculation logic
-    reward = (-distance_sum)
+    reward = (-distance_mean)
 
     # In python True in bool = 1 and False = 0, this behavior is preserved.
     # Assuming egg_on_the_floor returns a boolean or 0/1.
@@ -87,7 +87,7 @@ def reward_function_grasp(model, data):
     reward += 20 * check_contact(model, data, "egg", "arm_finger_right")
     reward += 20 * check_contact(model, data, "egg", "arm_finger_left")
 
-    return reward, distance_sum
+    return reward, distance_mean
 
 # Note: The functions `get_body_id`, `egg_on_the_floor`, and `check_contact`
 # are assumed to be defined elsewhere in your codebase.
