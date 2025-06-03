@@ -1,0 +1,4 @@
+p1: A <-> D 
+p2_arm: W <-> S
+p1_arm2: E <-> F
+fingers: C <-> V 

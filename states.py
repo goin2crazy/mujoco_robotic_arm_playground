@@ -77,13 +77,13 @@ def reward_function_grasp(model, data):
     distance_sum = distance_fingers_egg_right + distance_fingers_egg_left
 
     # Original reward calculation logic
-    reward += min(20 , 1/distance_sum)
+    reward = (-distance_sum)
 
     # In python True in bool = 1 and False = 0, this behavior is preserved.
     # Assuming egg_on_the_floor returns a boolean or 0/1.
-    reward -= 100 * egg_on_the_floor(model, data)
+    # reward -= 100 * egg_on_the_floor(model, data)
 
-    # Assuming check_contact returns a boolean or 0/1.
+    # # Assuming check_contact returns a boolean or 0/1.
     reward += 20 * check_contact(model, data, "egg", "arm_finger_right")
     reward += 20 * check_contact(model, data, "egg", "arm_finger_left")
 
@@ -152,6 +152,7 @@ def roughness_penalty(actions, max_value=1.0, min_value=-1.0, diff_weight=1.0, e
     
     return total_penalty
 
+
 if __name__ == '__main__':
     # Example Usage:
     print("--- Example Test Cases ---")
@@ -205,4 +206,3 @@ if __name__ == '__main__':
     print(f"  Default weights: Penalty: {penalty_weights_default:.4f}")
     print(f"  High diff_weight: Penalty: {penalty_weights_diff_high:.4f}")
     print(f"  High extreme_weight: Penalty: {penalty_weights_extreme_high:.4f}")
-

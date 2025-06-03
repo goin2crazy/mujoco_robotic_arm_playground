@@ -31,7 +31,7 @@
     <!-- arm body  -->
     <body name="base" pos="-0.5 -0.5 0.03">
       <geom name="base_geom" type="box" 
-      size="0.4 0.4 0.1" mass="55"
+      size="0.4 0.4 0.1" mass="10000"
       rgba="0.1 0.1 0.1 1"/> 
       <freejoint/>
 
@@ -49,9 +49,6 @@
           <geom name="arm_base_geom" type="capsule" 
           size="0.1 0.1 0.1" fromto='0 0 -0.05 -0.35 0 0.5'
           rgba="1 0.5 0 1"/>
-          <joint name="arm_base_1_joint" type="hinge" axis="1 0 0" pos="0 0 -0.25"/>
-
-
           
           <body name="arm_base_2" pos="-0.35 0 0.6">
             <geom name="arm_base_2_geom" type="sphere" 
@@ -143,7 +140,7 @@
     <!-- egg itself -->
     <body name="egg" pos="0.5 0.5 -0.1">
       <geom name="egg_geom" type="mesh" mesh="egg_mesh" 
-      euler="90 90 0" mass="1"
+      euler="90 90 0" mass="100"
       rgba="1 0.6 0.3 1"
       material="eggShellMaterial"
       />
@@ -156,11 +153,6 @@
     <!-- <motor name="m2" joint="base_1_joint" ctrlrange="-1 1" gear="100"/> -->
     <position name="p1" joint="base_1_joint"
           kp="500" kv="200"/>
-
-    <!-- <motor name="m2_arm" joint="arm_base_1_joint" ctrlrange="-1 1" gear="100"/> -->
-    <position name="p1_arm" joint="arm_base_1_joint"
-          kp="1000" kv="200"/>
-
           <!-- base_2_joint -->
 
     <position name="p2_arm" joint="base_2_joint"

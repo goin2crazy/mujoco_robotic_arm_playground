@@ -1,91 +1,90 @@
-import mujoco
 import numpy as np
 import cv2
-import os
-import time  # Import the time module
-import logging  # Import the logging module
+import logging
+from robo_env import MujocoRobotArmEnv # Assuming your class is in this file
 
-from utils import * 
-from observation import get_observation
-from states import * 
-
-def visualize_mujoco(model, data):
+def visualize_mujoco_env(env):
     """
-    Visualizes the MuJoCo model using OpenCV and allows control with keyboard.
+    Visualizes the MuJoCo robot arm environment using OpenCV and allows control with keyboard.
     """
-    print(print(model.jnt_qposadr))
-    print(print(model.jnt_type))
-    with mujoco.Renderer(model) as renderer:
-        start_time = time.time()
-        egg_start_pos = data.xpos[get_body_id(model, "egg")][:2].copy()
-        if np.any(np.isnan(egg_start_pos)):
-            egg_start_pos = np.array([0, 0])
+    logging.info("Starting MuJoCo environment visualization.")
 
-        egg_dist_to_target = 3
+    # Reset the environment to get the initial observation and info
+    observation, info = env.reset()
+    logging.info(f"Initial observation shape: {observation.shape}")
 
-        # Set initial control value
-        control_increment = 0.01  # How much it increases/decreases per keypress
-        min_control = -1.0
-        max_control = 1.0
+    # Set initial control value
+    # We will apply actions as increments to the current control values,
+    # similar to how it's handled in the environment's step method.
+    control_increment_rate = 0.01  # This will be multiplied by the action [-1, 1]
+    
+    # Get the number of actuators from the action space shape
+    num_actuators = env.action_space.shape[0]
+    current_action = np.zeros(num_actuators, dtype=np.float32)
 
-        reward_counter = 0 
-
-        while True:
-            try:
-                mujoco.mj_step(model, data)
-            except Exception as e:
-                logging.error(f"Error in mujoco.mj_step: {e}")
-                break
-
-            mujoco.mj_forward(model, data)
-            renderer.update_scene(data)
-            img = renderer.render()
+    while True:
+        # Render the environment
+        img = env.render(mode="rgb_array")
+        if img is not None:
             img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
             cv2.imshow("MuJoCo Scene", img_bgr)
+        else:
+            logging.warning("Rendering returned None. Is the renderer initialized?")
+            break
 
-            # 🧠 Keyboard interaction
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord('a'):  # Decrease control
-                data.ctrl = [max(min_control, data.ctrl[0] - control_increment)] + [0] * (len(data.ctrl)-1)
-            elif key == ord('d'):  # Increase control
-                data.ctrl = [min(max_control, data.ctrl[0] + control_increment)]+ [0] * (len(data.ctrl)-1)
-            elif key == ord('q'):  # Exit manually with Q
-                logging.info("Manual exit requested.")
-                break
+        # Keyboard interaction for control
+        key = cv2.waitKey(1) & 0xFF
+        action_to_take = np.zeros(num_actuators, dtype=np.float32)
 
-            # 📝 Observation + Reward logic
-            observation = get_observation(model, data)
-            rewards, egg_dist_to_target = reward_function_grasp(model, data)
+        if key == ord('a'):  # Decrease first actuator control
+            action_to_take[0] = -1.0
+        elif key == ord('d'):  # Increase first actuator control
+            action_to_take[0] = 1.0
+        elif key == ord('q'):  # Exit manually with Q
+            logging.info("Manual exit requested. Closing environment.")
+            break
+        
+        # Step the environment with the determined action
+        # The environment's step method handles the application of action to data.ctrl
+        observation, reward, terminated, truncated, info = env.step(action_to_take)
+        print(reward)
 
-            # logging.info(f"Observation: {observation}")
-            # logging.info(f"data.ctrl[0]: {data.ctrl[0]}")
-            # logging.info(f"Egg at the start: {egg_at_the_start(model, data)}")
-            # logging.info(f"Egg on the floor: {egg_on_the_floor(model, data)}")
-            # logging.info(f"Egg at the holding: {egg_at_the_holding(model, data)}")
-            # logging.info(f"Egg in target: {egg_in_target(model, data)}")
-
-            done, additional_reward = check_session_end(model, data, start_time, egg_start_pos)
-            rewards += additional_reward
+        if terminated:
+            logging.info(f"Episode finished. Final reward: {reward}")
+            # You might want to reset the environment here to start a new episode
+            # or break if you only want one episode per run.
+            observation, info = env.reset()
+            logging.info("Environment reset for a new episode.")
 
 
-            reward_counter +=1 
-            if reward_counter > 100: 
-                reward_counter = 0 
-                logging.info(f"Current rewards: {rewards}")
-                logging.info(f"Current observations: {observation}")
+        # Logging information
+        # The info dictionary from the environment already contains the relevant states
+        logging.debug(f"Observation shape: {observation.shape}")
+        logging.debug(f"Current reward: {reward}")
+        logging.debug(f"Egg at start: {info['egg_at_start']}")
+        logging.debug(f"Egg on floor: {info['egg_on_floor']}")
+        logging.debug(f"Egg at holding: {info['egg_at_holding']}")
+        logging.debug(f"Egg in target: {info['egg_in_target']}")
+        logging.debug(f"Simulation time: {info['time']:.3f}")
 
-            if done:
-                logging.info("Episode finished.")
-                break
-
-        cv2.destroyAllWindows()
+    cv2.destroyAllWindows()
+    env.close() # Ensure the environment resources are properly released
 
 
 if __name__ == "__main__":
     # Configure logging
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+    # Define the path to your MuJoCo model
+    model_xml_path = "egg_final.xml"
+
     try:
-        model, data = load_model_and_data("egg_final.xml")
-        visualize_mujoco(model, data)
+        # Create an instance of your custom environment
+        env = MujocoRobotArmEnv(model_path=model_xml_path, 
+                                moving_rate=0.01, 
+                                roughness_penalty_scale=0.01)
+        # Run the visualization loop
+        visualize_mujoco_env(env)
+
     except Exception as e:
-        logging.critical(f"An error occurred: {e}")  # Log the error and exit
+        logging.critical(f"An error occurred during environment initialization or visualization: {e}")
