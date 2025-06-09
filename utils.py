@@ -108,3 +108,83 @@ def egg_in_target(model, data):
     Checks if the egg body is touching the egg_base_target.
     """
     return check_contact(model, data, "egg", "egg_base_target")
+
+def read_recorded_trajectory(filepath):
+    """
+    Reads a single .npz trajectory file and prints its contents.
+
+    Args:
+        filepath (str): The full path to the .npz file (e.g., "recorded_data/trajectory_20250604-120113.npz").
+    """
+    if not os.path.exists(filepath):
+        print(f"Error: File not found at {filepath}")
+        return
+
+    try:
+        # np.load loads the .npz file.
+        # allow_pickle=True is necessary if your 'infos' array contains Python objects (like dictionaries).
+        # Without it, you might get an error.
+        data = np.load(filepath, allow_pickle=True) 
+
+        print(f"\n--- Reading data from: {filepath} ---")
+        print(f"Available keys in the file: {list(data.keys())}\n")
+
+        # Access each array by its key
+        observations = data["observations"]
+        controls = data["controls"]
+        rewards = data["rewards"]
+        dones = data["dones"]
+        infos = data["infos"]
+
+        print(f"Total steps recorded: {len(observations)}")
+        print(f"Shape of observations array: {observations.shape}")
+        print(f"Shape of controls array: {controls.shape}")
+        print(f"Shape of rewards array: {rewards.shape}")
+        print(f"Shape of dones array: {dones.shape}")
+        # infos might have a shape like (N,) if they are individual dictionaries
+        print(f"Shape of infos array: {infos.shape}") 
+
+        print("\n--- First 5 steps (or fewer if trajectory is short) ---")
+        num_steps_to_show = min(5, len(observations))
+
+        for i in range(num_steps_to_show):
+            print(f"\n--- Step {i+1} ---")
+            print(f"Observation (first 5 elements): {observations[i][:5]}") # Print first few elements
+            print(f"Control values: {controls[i]}")
+            print(f"Reward: {rewards[i]:.4f}")
+            print(f"Terminated: {dones[i]}")
+            print(f"Info: {infos[i]}") # This will likely be a dictionary
+
+        # It's good practice to close the loaded file object
+        data.close()
+        return data 
+
+    except Exception as e:
+        print(f"An error occurred while reading the file: {e}")
+
+if __name__ == "__main__":
+    # --- IMPORTANT: Set the correct path to your .npz file ---
+    # Example: If you saved a file named 'trajectory_20250604-120113.npz'
+    # in a folder called 'recorded_data' in the same directory as this script.
+    
+    # 1. Option A: Specify a known file path
+    # Make sure this path exists and points to one of your saved files.
+    # You'll need to replace 'YOUR_TIMESTAMP_HERE' with an actual timestamp from your files.
+    # For example: "recorded_data/trajectory_20250604-120934.npz"
+    # sample_filepath = "recorded_data/trajectory_YOUR_TIMESTAMP_HERE.npz" 
+    
+    # 2. Option B: Find the latest file in the 'recorded_data' directory
+    recorded_data_dir = "recorded_data"
+    
+    if not os.path.exists(recorded_data_dir):
+        print(f"Error: Directory '{recorded_data_dir}' not found. Please ensure you have recorded data first.")
+    else:
+        npz_files = [f for f in os.listdir(recorded_data_dir) if f.endswith('.npz')]
+        if not npz_files:
+            print(f"No .npz files found in '{recorded_data_dir}'. Please record some data first.")
+        else:
+            # Sort files by modification time to get the latest one
+            latest_file = max(npz_files, key=lambda f: os.path.getmtime(os.path.join(recorded_data_dir, f)))
+            sample_filepath = os.path.join(recorded_data_dir, latest_file)
+            print(f"Found latest recorded file: {sample_filepath}")
+            read_recorded_trajectory(sample_filepath)

@@ -1,26 +1,101 @@
 import numpy as np
 import cv2
 import logging
-from robo_env import MujocoRobotArmEnv # Assuming your class is in this file
+import os # Import os for path manipulation
+import datetime # Import datetime for unique filenames
+
+# Make sure MujocoRobotArmEnv is importable from your current directory or path
+from robo_env import MujocoRobotArmEnv 
+
+# --- New DataRecorder Class ---
+class DataRecorder:
+    def __init__(self, save_dir="recorded_data"):
+        self.save_dir = save_dir
+        os.makedirs(self.save_dir, exist_ok=True) # Ensure the directory exists
+        self.reset()
+
+    def reset(self):
+        """Resets the stored data for a new recording session/episode."""
+        self.observations = []
+        self.controls = [] # Corresponds to env.data.ctrl at each step
+        self.rewards = []
+        self.dones = [] # For termination status
+        self.infos = [] # For additional info from the environment
+
+    def record_step(self, observation, control, reward, terminated, info):
+        """Records data for a single simulation step."""
+        self.observations.append(observation.copy()) # .copy() is important for NumPy arrays
+        self.controls.append(control.copy())
+        self.rewards.append(reward)
+        self.dones.append(terminated)
+        self.infos.append(info.copy()) # .copy() if info dict contains mutable objects
+
+    def save_data(self, filename=None):
+        """Saves all recorded data to a .npz file."""
+        if not self.observations:
+            logging.warning("No data recorded to save.")
+            return
+
+        if filename is None:
+            # Generate a unique filename using timestamp
+            timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+            filename = f"trajectory_{timestamp}.npz"
+        
+        filepath = os.path.join(self.save_dir, filename)
+
+        # Convert lists to NumPy arrays for efficient saving
+        data_to_save = {
+            "observations": np.array(self.observations),
+            "controls": np.array(self.controls),
+            "rewards": np.array(self.rewards),
+            "dones": np.array(self.dones),
+            # Flatten info dictionaries or choose specific keys if they are complex
+            # For simplicity, we'll convert them to an object array.
+            "infos": np.array(self.infos, dtype=object) 
+        }
+
+        try:
+            np.savez_compressed(filepath, **data_to_save)
+            logging.info(f"Data saved successfully to {filepath}")
+            self.reset() # Reset recorder after saving
+        except Exception as e:
+            logging.error(f"Error saving data to {filepath}: {e}")
+
+# --- End DataRecorder Class ---
+
 
 def visualize_mujoco_env(env):
     """
     Visualizes the MuJoCo robot arm environment using OpenCV and allows control with keyboard.
+    Directly manipulates env.data.ctrl for smoother, immediate control feedback.
+    Also records trajectory data.
     """
     logging.info("Starting MuJoCo environment visualization.")
+
+    # Initialize the data recorder
+    recorder = DataRecorder()
 
     # Reset the environment to get the initial observation and info
     observation, info = env.reset()
     logging.info(f"Initial observation shape: {observation.shape}")
 
-    # Set initial control value
-    # We will apply actions as increments to the current control values,
-    # similar to how it's handled in the environment's step method.
-    control_increment_rate = 0.01  # This will be multiplied by the action [-1, 1]
-    
-    # Get the number of actuators from the action space shape
     num_actuators = env.action_space.shape[0]
-    current_action = np.zeros(num_actuators, dtype=np.float32)
+    
+    # Define control parameters for smoothness
+    smoothness_coef = 0.1 
+    control_change_amount = 0.1 
+
+    # Use the actual limits from the environment's model
+    # It's generally safer to get these directly from the model if available
+    # rather than hardcoding them, as they might vary with different models.
+    # If your model indeed has fixed -1 to 1 limits for all 5 actuators,
+    # then your hardcoded min_ctrl/max_ctrl lists are fine.
+    # Example using model limits:
+    # min_ctrl = env.model.actuator_ctrlrange[:, 0] 
+    # max_ctrl = env.model.actuator_ctrlrange[:, 1]
+    min_ctrl = [-1] * 5 
+    max_ctrl = [1] * 5
+
 
     while True:
         # Render the environment
@@ -32,41 +107,80 @@ def visualize_mujoco_env(env):
             logging.warning("Rendering returned None. Is the renderer initialized?")
             break
 
-        # Keyboard interaction for control
+        # Get keyboard input
         key = cv2.waitKey(1) & 0xFF
-        action_to_take = env.data.ctrl
-        smoothness = 0.01 
 
-        if key == ord('a'):  # Decrease first actuator control
-            action_to_take[0] =  action_to_take[0] + (-1.0*smoothness)
-        elif key == ord('d'):  # Increase first actuator control
-            action_to_take[0] = action_to_take[0] + (1.0*smoothness)
-        elif key == ord('q'):  # Exit manually with Q
+        # --- Direct manipulation of env.data.ctrl with smoothness ---
+        # Joint 0: p1 (A <-> D)
+        if key == ord('a'):  # Decrease p1
+            env.data.ctrl[0] = np.clip(env.data.ctrl[0] - (smoothness_coef * control_change_amount), min_ctrl[0], max_ctrl[0])
+        elif key == ord('d'):  # Increase p1
+            env.data.ctrl[0] = np.clip(env.data.ctrl[0] + (smoothness_coef * control_change_amount), min_ctrl[0], max_ctrl[0])
+        
+        # Joint 1: p2_arm (W <-> S)
+        elif key == ord('w'):  # Decrease p2_arm
+            env.data.ctrl[1] = np.clip(env.data.ctrl[1] - (smoothness_coef * control_change_amount), min_ctrl[1], max_ctrl[1])
+        elif key == ord('s'):  # Increase p2_arm
+            env.data.ctrl[1] = np.clip(env.data.ctrl[1] + (smoothness_coef * control_change_amount), min_ctrl[1], max_ctrl[1])
+
+        # Joint 2: p1_arm2 (E <-> F)
+        elif key == ord('e'):  # Decrease p1_arm2
+            env.data.ctrl[2] = np.clip(env.data.ctrl[2] - (smoothness_coef * control_change_amount), min_ctrl[2], max_ctrl[2])
+        elif key == ord('f'):  # Increase p1_arm2
+            env.data.ctrl[2] = np.clip(env.data.ctrl[2] + (smoothness_coef * control_change_amount), min_ctrl[2], max_ctrl[2])
+
+        # Joints 3 and 4: fingers (C <-> V)
+        # Assuming actuators 3 and 4 control the fingers
+        elif key == ord('c'):  # Decrease fingers
+            if num_actuators > 3: 
+                env.data.ctrl[3] = np.clip(env.data.ctrl[3] - (smoothness_coef * control_change_amount), min_ctrl[3], max_ctrl[3])
+            if num_actuators > 4: # If there's a 5th actuator for the other finger
+                env.data.ctrl[4] = np.clip(env.data.ctrl[4] - (smoothness_coef * control_change_amount), min_ctrl[4], max_ctrl[4])
+        elif key == ord('v'):  # Increase fingers
+            if num_actuators > 3:
+                env.data.ctrl[3] = np.clip(env.data.ctrl[3] + (smoothness_coef * control_change_amount), min_ctrl[3], max_ctrl[3])
+            if num_actuators > 4:
+                env.data.ctrl[4] = np.clip(env.data.ctrl[4] + (smoothness_coef * control_change_amount), min_ctrl[4], max_ctrl[4])
+
+        # --- New: Keybind for Saving Data ---
+        elif key == ord('s'): # Press 'S' to save the current trajectory
+            logging.info("Saving recorded data...")
+            recorder.save_data()
+            # The recorder automatically resets after saving, so it's ready for a new trajectory.
+            continue # Skip stepping the environment for this frame, as 's' is a command
+
+        # Exit manually with Q
+        elif key == ord('q'):  
             logging.info("Manual exit requested. Closing environment.")
+            # Optionally save unsaved data before exiting
+            if recorder.observations: # Check if there's any data pending
+                logging.info("Saving remaining data before exit.")
+                recorder.save_data(filename="partial_trajectory_on_exit.npz")
             break
         
-        # Step the environment with the determined action
-        # The environment's step method handles the application of action to data.ctrl
-        observation, reward, terminated, truncated, info = env.step(action_to_take)
-        print(reward)
+        # Step the environment with a dummy action (all zeros)
+        # The control values (env.data.ctrl) have already been set manually above.
+        # The environment's step method will now use these pre-set control values
+        # when it calls mujoco.mj_step(), and then calculate rewards, observations, etc.
+        dummy_action = np.zeros(num_actuators, dtype=np.float32)
+        observation, reward, terminated, truncated, info = env.step(dummy_action)
+
+        # --- Record data after each step ---
+        recorder.record_step(observation, env.data.ctrl, reward, terminated, info)
 
         if terminated:
             logging.info(f"Episode finished. Final reward: {reward}")
-            # You might want to reset the environment here to start a new episode
-            # or break if you only want one episode per run.
+            # Reset the environment to start a new episode
             observation, info = env.reset()
-            logging.info("Environment reset for a new episode.")
+            logging.info("Environment reset for a new episode. Recorder also reset.")
+            recorder.reset() # Also reset the recorder for a new episode
 
-
-        # Logging information
-        # The info dictionary from the environment already contains the relevant states
+        # Logging information (can be set to DEBUG level for less verbose output)
         logging.debug(f"Observation shape: {observation.shape}")
+        logging.debug(f"Current env.data.ctrl: {env.data.ctrl}") 
         logging.debug(f"Current reward: {reward}")
-        logging.debug(f"Egg at start: {info['egg_at_start']}")
-        logging.debug(f"Egg on floor: {info['egg_on_floor']}")
-        logging.debug(f"Egg at holding: {info['egg_at_holding']}")
-        logging.debug(f"Egg in target: {info['egg_in_target']}")
-        logging.debug(f"Simulation time: {info['time']:.3f}")
+        
+        print(f"Current reward: {reward}") # Keeping your print for direct feedback
 
     cv2.destroyAllWindows()
     env.close() # Ensure the environment resources are properly released
@@ -81,9 +195,8 @@ if __name__ == "__main__":
 
     try:
         # Create an instance of your custom environment
-        env = MujocoRobotArmEnv(model_path=model_xml_path, 
-                                moving_rate=0.01, 
-                                roughness_penalty_scale=0.01)
+        env = MujocoRobotArmEnv(model_path=model_xml_path, moving_rate=1) 
+        
         # Run the visualization loop
         visualize_mujoco_env(env)
 
