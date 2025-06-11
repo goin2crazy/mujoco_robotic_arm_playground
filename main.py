@@ -82,7 +82,7 @@ def visualize_mujoco_env(env):
     num_actuators = env.action_space.shape[0]
     
     # Define control parameters for smoothness
-    smoothness_coef = 0.1 
+    smoothness_coef = 0.3 
     control_change_amount = 0.1 
 
     # Use the actual limits from the environment's model
@@ -143,7 +143,7 @@ def visualize_mujoco_env(env):
                 env.data.ctrl[4] = np.clip(env.data.ctrl[4] + (smoothness_coef * control_change_amount), min_ctrl[4], max_ctrl[4])
 
         # --- New: Keybind for Saving Data ---
-        elif key == ord('s'): # Press 'S' to save the current trajectory
+        elif key == ord('g'): # Press 'S' to save the current trajectory
             logging.info("Saving recorded data...")
             recorder.save_data()
             # The recorder automatically resets after saving, so it's ready for a new trajectory.
@@ -155,7 +155,7 @@ def visualize_mujoco_env(env):
             # Optionally save unsaved data before exiting
             if recorder.observations: # Check if there's any data pending
                 logging.info("Saving remaining data before exit.")
-                recorder.save_data(filename="partial_trajectory_on_exit.npz")
+                recorder.save_data(filename="partial_trajectory_on_exit_2.npz")
             break
         
         # Step the environment with a dummy action (all zeros)
