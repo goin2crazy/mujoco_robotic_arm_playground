@@ -16,7 +16,7 @@ class MujocoRobotArmEnv(gym.Env):
 
     def __init__(self, 
                  model_path="your_model.xml", 
-                 moving_rate=1e-2,
+                 moving_rate=5e-3,
                  reward_fn = None, 
                  reward_fn_scale =1, 
                  roughness_penalty_scale=1, 
@@ -76,7 +76,7 @@ class MujocoRobotArmEnv(gym.Env):
         assert action.shape == self.action_space.shape # Important: Check shape
 
         try:
-            self.data.ctrl[:] = self.data.ctrl + (action * self.moving_rate)  # Apply action (replace with your control logic)
+            self.data.ctrl[:] = self.data.ctrl + (action * (self.moving_rate ** 0.5))  # Apply action (replace with your control logic)
             mujoco.mj_step(self.model, self.data)
         except Exception as e:
             logging.error(f"Error in mj_step: {e}")
@@ -93,9 +93,12 @@ class MujocoRobotArmEnv(gym.Env):
         reward, self.current_dist = self.reward_fn(self.model, self.data) #TODO prev_dist
         reward = reward * self.reward_fn_scale
 
-        # Penalty for motions roughness
-        roughtness_penalty = roughness_penalty(action)
-        reward -= roughtness_penalty * self.roughness_penalty_scale
+        # smooother actions - penaltie for too rought actions 
+        reward = adjust_reward_for_smoothness(reward, action, self.last_action, 
+                                              moving_smoothness=self.moving_rate, 
+                                              penalty_multiplier=10 * self.roughness_penalty_scale)
+
+        self.last_action = action
 
         # Check for the end of the session.
         terminated, additional_reward = check_session_end(self.model, self.data, self.steps_made_in_episode, self.egg_start_pos) #TODO start time
@@ -142,6 +145,7 @@ class MujocoRobotArmEnv(gym.Env):
 
         # Get the initial observation.
         observation = get_observation(self.model, self.data)
+        self.last_action = self.data.ctrl
 
         info = {}  # Add any relevant info here
 

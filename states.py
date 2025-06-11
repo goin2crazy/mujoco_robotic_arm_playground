@@ -93,118 +93,162 @@ def reward_function_grasp(model, data):
 
 # Note: The functions `get_body_id`, `egg_on_the_floor`, and `check_contact`
 # are assumed to be defined elsewhere in your codebase.
+import numpy as np
 
-def roughness_penalty(actions, max_value=1.0, min_value=-1.0, diff_weight=1.0, extreme_weight=1.0):
+def adjust_reward_for_smoothness(
+    total_reward: float,
+    new_actions: np.ndarray,
+    old_actions: np.ndarray,
+    moving_smoothness: float = 5e-4,
+    penalty_multiplier: float = 1.0
+) -> float:
     """
-    Calculates a penalty for "rough" actions in a sequence.
+    Adjusts the total reward for an RL robot by penalizing large changes in actions.
 
-    The penalty is composed of two parts:
-    1. Penalty for rapid changes: Sum of squared differences between consecutive actions.
-       This penalizes jerky movements.
-    2. Penalty for sustained extreme values: Counts occurrences of consecutive actions
-       that are both at max_value or both at min_value. This penalizes the agent
-       for "sticking" to the boundaries of its action space.
+    This function helps to encourage smoother robot movements during training by
+    reducing the reward if the squared difference between new and old actions
+    exceeds a specified 'moving_smoothness' threshold.
 
     Args:
-        actions (list of float): A list of numerical action values.
-        max_value (float, optional): The maximum possible value for an action.
-                                     Defaults to 1.0.
-        min_value (float, optional): The minimum possible value for an action.
-                                     Defaults to -1.0.
-        diff_weight (float, optional): A weight to scale the penalty from rapid changes.
-                                       Defaults to 1.0.
-        extreme_weight (float, optional): A weight to scale the penalty from sustained
-                                          extreme values. Defaults to 1.0.
+        total_reward (float): The original reward obtained from the environment.
+        new_actions (np.ndarray): A NumPy array representing the robot's
+                                  actions at the current timestep.
+        old_actions (np.ndarray): A NumPy array representing the robot's
+                                  actions at the previous timestep.
+        moving_smoothness (float, optional): The threshold for the squared
+                                             difference between new and old actions.
+                                             If (new_action - old_action)**2
+                                             is greater than this value, a penalty
+                                             is applied. Defaults to 5e-4.
+        penalty_multiplier (float, optional): A factor to multiply the
+                                              sum of penalized squared differences
+                                              by, controlling the severity of the
+                                              penalty. Defaults to 100.0.
 
     Returns:
-        float: A non-negative value representing the total roughness penalty.
-               Higher values indicate rougher actions.
+        float: The adjusted reward after applying the smoothness penalty.
+               The adjusted reward will be total_reward - penalty.
     """
+    if not isinstance(new_actions, np.ndarray) or not isinstance(old_actions, np.ndarray):
+        print("Warning: new_actions and old_actions should be NumPy arrays.")
+        return total_reward # Return original reward if types are incorrect
 
-    total_penalty = 0.0
+    if new_actions.shape != old_actions.shape:
+        print("Warning: Shape mismatch between new_actions and old_actions. Returning original reward.")
+        return total_reward # Return original reward if shapes don't match
 
-    # --- 1. Penalty for rapid changes (jerkiness) ---
-    # This is calculated as the sum of squared differences between consecutive actions.
-    # It penalizes large jumps in action values.
-    diff_penalty_sum = 0.0
-    if len(actions) > 1:
-        for i in range(len(actions) - 1):
-            change = actions[i+1] - actions[i]
-            diff_penalty_sum += change * change  # Square the change to emphasize larger jumps
-    
-    total_penalty += diff_weight * diff_penalty_sum
+    # Calculate the squared difference for each action component
+    action_diff_squared = (new_actions - old_actions) ** 2
 
-    # --- 2. Penalty for sustained extreme values ---
-    # This penalizes sequences like [max_value, max_value] or [min_value, min_value].
-    # It counts how many times an action remains at an extreme value for at least two consecutive steps.
-    sustained_extreme_count = 0
-    if len(actions) > 1:
-        for i in range(len(actions) - 1):
-            current_action = actions[i]
-            next_action = actions[i+1]
-            
-            # Check if both current and next actions are at the maximum value
-            if current_action == max_value and next_action == max_value:
-                sustained_extreme_count += 1
-            # Check if both current and next actions are at the minimum value
-            elif current_action == min_value and next_action == min_value:
-                sustained_extreme_count += 1
-                
-    total_penalty += extreme_weight * sustained_extreme_count
-    
-    return total_penalty
+    # Identify where the squared difference exceeds the smoothness threshold
+    # This creates a boolean array where True indicates a penalty condition
+    penalized_elements = action_diff_squared > moving_smoothness
+
+    # Calculate the total penalty. We sum up only the squared differences
+    # that exceeded the threshold and then apply the penalty_multiplier.
+    penalty = np.sum(action_diff_squared[penalized_elements]) * penalty_multiplier
+
+    # Subtract the calculated penalty from the original total reward
+    adjusted_reward = total_reward - penalty
+
+    return adjusted_reward
+
+# --- Example Usage ---
+if __name__ == "__main__":
+    print("--- Example 1: Actions are smooth ---")
+    current_reward_1 = 10.0
+    prev_actions_1 = np.array([0.1, 0.2, 0.3])
+    curr_actions_1 = np.array([0.101, 0.201, 0.301]) # Small changes
+
+    adjusted_reward_1 = adjust_reward_for_smoothness(
+        current_reward_1,
+        curr_actions_1,
+        prev_actions_1,
+        moving_smoothness=5e-4, # Default value
+        penalty_multiplier=1
+    )
+    print(f"Original Reward: {current_reward_1}")
+    print(f"Previous Actions: {prev_actions_1}")
+    print(f"Current Actions: {curr_actions_1}")
+    print(f"Adjusted Reward: {adjusted_reward_1}\n") # Should be close to original reward
+
+    print("--- Example 2: Actions are not smooth (penalty applied) ---")
+    current_reward_2 = 10.0
+    prev_actions_2 = np.array([0.1, 0.2, 0.3])
+    curr_actions_2 = np.array([0.5, 0.1, 0.8]) # Large changes
+
+    adjusted_reward_2 = adjust_reward_for_smoothness(
+        current_reward_2,
+        curr_actions_2,
+        prev_actions_2,
+        moving_smoothness=5e-4, # Default value
+        penalty_multiplier=1
+    )
+    print(f"Original Reward: {current_reward_2}")
+    print(f"Previous Actions: {prev_actions_2}")
+    print(f"Current Actions: {curr_actions_2}")
+    print(f"Adjusted Reward: {adjusted_reward_2}\n") # Should be significantly lower
+
+    print("--- Example 3: Adjusting penalty_multiplier ---")
+    current_reward_3 = 10.0
+    prev_actions_3 = np.array([0.1, 0.2, 0.3])
+    curr_actions_3 = np.array([0.5, 0.1, 0.8]) # Large changes
+
+    adjusted_reward_3 = adjust_reward_for_smoothness(
+        current_reward_3,
+        curr_actions_3,
+        prev_actions_3,
+        moving_smoothness=5e-4,
+        penalty_multiplier=1 # Increased penalty
+    )
+    print(f"Original Reward: {current_reward_3}")
+    print(f"Previous Actions: {prev_actions_3}")
+    print(f"Current Actions: {curr_actions_3}")
+    print(f"Adjusted Reward (higher penalty): {adjusted_reward_3}\n")
+
+    print("--- Example 4: Edge case - all actions are zero ---")
+    current_reward_4 = 5.0
+    prev_actions_4 = np.array([0.0, 0.0])
+    curr_actions_4 = np.array([0.0, 0.0])
+
+    adjusted_reward_4 = adjust_reward_for_smoothness(
+        current_reward_4,
+        curr_actions_4,
+        prev_actions_4
+    )
+    print(f"Original Reward: {current_reward_4}")
+    print(f"Previous Actions: {prev_actions_4}")
+    print(f"Current Actions: {curr_actions_4}")
+    print(f"Adjusted Reward (no change): {adjusted_reward_4}\n")
+
+    print("--- Example 5: Edge case - different array shapes ---")
+    current_reward_5 = 10.0
+    prev_actions_5 = np.array([0.1, 0.2])
+    curr_actions_5 = np.array([0.1, 0.2, 0.3])
+
+    adjusted_reward_5 = adjust_reward_for_smoothness(
+        current_reward_5,
+        curr_actions_5,
+        prev_actions_5
+    )
+    print(f"Original Reward: {current_reward_5}")
+    print(f"Previous Actions: {prev_actions_5}")
+    print(f"Current Actions: {curr_actions_5}")
+    print(f"Adjusted Reward (shape mismatch): {adjusted_reward_5}\n")
+
+    print("--- Example 6: Edge case - non-numpy inputs ---")
+    current_reward_6 = 10.0
+    prev_actions_6 = [0.1, 0.2]
+    curr_actions_6 = [0.1, 0.2, 0.3]
+
+    adjusted_reward_6 = adjust_reward_for_smoothness(
+        current_reward_6,
+        curr_actions_6,
+        prev_actions_6
+    )
+    print(f"Original Reward: {current_reward_6}")
+    print(f"Previous Actions: {prev_actions_6}")
+    print(f"Current Actions: {curr_actions_6}")
+    print(f"Adjusted Reward (non-numpy inputs): {adjusted_reward_6}\n")
 
 
-if __name__ == '__main__':
-    # Example Usage:
-    print("--- Example Test Cases ---")
-
-    # Smooth actions, low penalty
-    actions_smooth = [0.0, 0.1, 0.2, 0.3, 0.4]
-    penalty_smooth = roughness_penalty(actions_smooth)
-    print(f"Actions: {actions_smooth}, Penalty: {penalty_smooth:.4f}") # Expected: low
-
-    # Rapidly changing actions, high diff penalty
-    actions_rapid_change = [0.0, 1.0, -1.0, 1.0, 0.0]
-    penalty_rapid_change = roughness_penalty(actions_rapid_change)
-    print(f"Actions: {actions_rapid_change}, Penalty: {penalty_rapid_change:.4f}") # Expected: high
-
-    # Sustained max value, high extreme penalty
-    actions_sustained_max = [0.5, 1.0, 1.0, 1.0, 0.5]
-    penalty_sustained_max = roughness_penalty(actions_sustained_max)
-    print(f"Actions: {actions_sustained_max}, Penalty: {penalty_sustained_max:.4f}") # Expected: moderate to high
-
-    # Sustained min value, high extreme penalty
-    actions_sustained_min = [0.0, -1.0, -1.0, -1.0, -1.0, 0.0]
-    penalty_sustained_min = roughness_penalty(actions_sustained_min)
-    print(f"Actions: {actions_sustained_min}, Penalty: {penalty_sustained_min:.4f}") # Expected: moderate to high
-
-    # Mixed: some rapid changes and some sustained extremes
-    actions_mixed = [0.0, 0.8, 1.0, 1.0, 0.2, -0.7, -1.0, -1.0, -1.0]
-    penalty_mixed = roughness_penalty(actions_mixed)
-    print(f"Actions: {actions_mixed}, Penalty: {penalty_mixed:.4f}")
-
-    # Single action, penalty should be 0
-    actions_single = [0.5]
-    penalty_single = roughness_penalty(actions_single)
-    print(f"Actions: {actions_single}, Penalty: {penalty_single:.4f}") # Expected: 0.0
-
-    actions_single_extreme = [1.0]
-    penalty_single_extreme = roughness_penalty(actions_single_extreme)
-    print(f"Actions: {actions_single_extreme}, Penalty: {penalty_single_extreme:.4f}") # Expected: 0.0
-
-    # Empty actions, penalty should be 0
-    actions_empty = []
-    penalty_empty = roughness_penalty(actions_empty)
-    print(f"Actions: {actions_empty}, Penalty: {penalty_empty:.4f}") # Expected: 0.0
-
-    # Test with different weights
-    actions_test_weights = [0.0, 1.0, 1.0] # 1 diff (0 to 1), 1 sustained (1,1)
-    # (1-0)^2 = 1. sustained_extreme_count = 1
-    penalty_weights_default = roughness_penalty(actions_test_weights) # diff_w=1, extreme_w=1. Penalty = 1*1 + 1*1 = 2
-    penalty_weights_diff_high = roughness_penalty(actions_test_weights, diff_weight=5.0, extreme_weight=1.0) # P = 5*1 + 1*1 = 6
-    penalty_weights_extreme_high = roughness_penalty(actions_test_weights, diff_weight=1.0, extreme_weight=5.0) # P = 1*1 + 5*1 = 6
-    print(f"Actions: {actions_test_weights}")
-    print(f"  Default weights: Penalty: {penalty_weights_default:.4f}")
-    print(f"  High diff_weight: Penalty: {penalty_weights_diff_high:.4f}")
-    print(f"  High extreme_weight: Penalty: {penalty_weights_extreme_high:.4f}")
