@@ -195,7 +195,7 @@ if __name__ == "__main__":
 
     try:
         # Create an instance of your custom environment
-        env = MujocoRobotArmEnv(model_path=model_xml_path, moving_rate=1) 
+        env = MujocoRobotArmEnv(model_path=model_xml_path, roughness_penalty_scale=100, moving_rate=5e-6) 
         
         # Run the visualization loop
         visualize_mujoco_env(env)

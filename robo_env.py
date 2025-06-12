@@ -76,7 +76,16 @@ class MujocoRobotArmEnv(gym.Env):
         assert action.shape == self.action_space.shape # Important: Check shape
 
         try:
-            self.data.ctrl[:] = self.data.ctrl + (action * (self.moving_rate ** 0.5))  # Apply action (replace with your control logic)
+            # OLD ACTIONS FORMULA - DOESNT WORKS WELL!!! ESPECIALLY FOR DEMOS 
+            # self.data.ctrl[:] = self.data.ctrl + (action * (self.moving_rate ** 0.5))  
+
+            # So if we imagine that action = data.ctrl + some movement 
+            # The with math simple laws we ger that 
+            # some little movement = action - data.ctrl 
+            # So the smooth this little movement we apply the moving_rate 
+            # And it all goes data.ctrl = action = data.ctrl + little_movement = data.ctrl + (action- data.ctrl) * moving_rate 
+            self.data.ctrl[:] = self.data.ctrl + (action - self.data.ctrl) * (self.moving_rate ** 0.5)
+
             mujoco.mj_step(self.model, self.data)
         except Exception as e:
             logging.error(f"Error in mj_step: {e}")
