@@ -17,7 +17,7 @@ class DataRecorder:
     def reset(self):
         """Resets the stored data for a new recording session/episode."""
         self.observations = []
-        self.controls = [] # Corresponds to env.data.ctrl at each step
+        self.controls = [] # Corresponds to dummy_action at each step
         self.rewards = []
         self.dones = [] # For termination status
         self.infos = [] # For additional info from the environment
@@ -67,7 +67,7 @@ class DataRecorder:
 def visualize_mujoco_env(env):
     """
     Visualizes the MuJoCo robot arm environment using OpenCV and allows control with keyboard.
-    Directly manipulates env.data.ctrl for smoother, immediate control feedback.
+    Directly manipulates dummy_action for smoother, immediate control feedback.
     Also records trajectory data.
     """
     logging.info("Starting MuJoCo environment visualization.")
@@ -83,7 +83,7 @@ def visualize_mujoco_env(env):
     
     # Define control parameters for smoothness
     smoothness_coef = 0.3 
-    control_change_amount = 0.1 
+    control_change_amount = 1
 
     # Use the actual limits from the environment's model
     # It's generally safer to get these directly from the model if available
@@ -96,7 +96,7 @@ def visualize_mujoco_env(env):
     min_ctrl = [-1] * 5 
     max_ctrl = [1] * 5
 
-
+    dummy_action = env.data.ctrl
     while True:
         # Render the environment
         img = env.render(mode="rgb_array")
@@ -110,37 +110,37 @@ def visualize_mujoco_env(env):
         # Get keyboard input
         key = cv2.waitKey(1) & 0xFF
 
-        # --- Direct manipulation of env.data.ctrl with smoothness ---
+        # --- Direct manipulation of dummy_action with smoothness ---
         # Joint 0: p1 (A <-> D)
         if key == ord('a'):  # Decrease p1
-            env.data.ctrl[0] = np.clip(env.data.ctrl[0] - (smoothness_coef * control_change_amount), min_ctrl[0], max_ctrl[0])
+            dummy_action[0] = np.clip(dummy_action[0] - (smoothness_coef * control_change_amount), min_ctrl[0], max_ctrl[0])
         elif key == ord('d'):  # Increase p1
-            env.data.ctrl[0] = np.clip(env.data.ctrl[0] + (smoothness_coef * control_change_amount), min_ctrl[0], max_ctrl[0])
+            dummy_action[0] = np.clip(dummy_action[0] + (smoothness_coef * control_change_amount), min_ctrl[0], max_ctrl[0])
         
         # Joint 1: p2_arm (W <-> S)
         elif key == ord('w'):  # Decrease p2_arm
-            env.data.ctrl[1] = np.clip(env.data.ctrl[1] - (smoothness_coef * control_change_amount), min_ctrl[1], max_ctrl[1])
+            dummy_action[1] = np.clip(dummy_action[1] - (smoothness_coef * control_change_amount), min_ctrl[1], max_ctrl[1])
         elif key == ord('s'):  # Increase p2_arm
-            env.data.ctrl[1] = np.clip(env.data.ctrl[1] + (smoothness_coef * control_change_amount), min_ctrl[1], max_ctrl[1])
+            dummy_action[1] = np.clip(dummy_action[1] + (smoothness_coef * control_change_amount), min_ctrl[1], max_ctrl[1])
 
         # Joint 2: p1_arm2 (E <-> F)
         elif key == ord('e'):  # Decrease p1_arm2
-            env.data.ctrl[2] = np.clip(env.data.ctrl[2] - (smoothness_coef * control_change_amount), min_ctrl[2], max_ctrl[2])
+            dummy_action[2] = np.clip(dummy_action[2] - (smoothness_coef * control_change_amount), min_ctrl[2], max_ctrl[2])
         elif key == ord('f'):  # Increase p1_arm2
-            env.data.ctrl[2] = np.clip(env.data.ctrl[2] + (smoothness_coef * control_change_amount), min_ctrl[2], max_ctrl[2])
+            dummy_action[2] = np.clip(dummy_action[2] + (smoothness_coef * control_change_amount), min_ctrl[2], max_ctrl[2])
 
         # Joints 3 and 4: fingers (C <-> V)
         # Assuming actuators 3 and 4 control the fingers
         elif key == ord('c'):  # Decrease fingers
             if num_actuators > 3: 
-                env.data.ctrl[3] = np.clip(env.data.ctrl[3] - (smoothness_coef * control_change_amount), min_ctrl[3], max_ctrl[3])
+                dummy_action[3] = np.clip(dummy_action[3] - (smoothness_coef * control_change_amount), min_ctrl[3], max_ctrl[3])
             if num_actuators > 4: # If there's a 5th actuator for the other finger
-                env.data.ctrl[4] = np.clip(env.data.ctrl[4] - (smoothness_coef * control_change_amount), min_ctrl[4], max_ctrl[4])
+                dummy_action[4] = np.clip(dummy_action[4] - (smoothness_coef * control_change_amount), min_ctrl[4], max_ctrl[4])
         elif key == ord('v'):  # Increase fingers
             if num_actuators > 3:
-                env.data.ctrl[3] = np.clip(env.data.ctrl[3] + (smoothness_coef * control_change_amount), min_ctrl[3], max_ctrl[3])
+                dummy_action[3] = np.clip(dummy_action[3] + (smoothness_coef * control_change_amount), min_ctrl[3], max_ctrl[3])
             if num_actuators > 4:
-                env.data.ctrl[4] = np.clip(env.data.ctrl[4] + (smoothness_coef * control_change_amount), min_ctrl[4], max_ctrl[4])
+                dummy_action[4] = np.clip(dummy_action[4] + (smoothness_coef * control_change_amount), min_ctrl[4], max_ctrl[4])
 
         # --- New: Keybind for Saving Data ---
         elif key == ord('g'): # Press 'S' to save the current trajectory
@@ -159,14 +159,13 @@ def visualize_mujoco_env(env):
             break
         
         # Step the environment with a dummy action (all zeros)
-        # The control values (env.data.ctrl) have already been set manually above.
+        # The control values (dummy_action) have already been set manually above.
         # The environment's step method will now use these pre-set control values
         # when it calls mujoco.mj_step(), and then calculate rewards, observations, etc.
-        dummy_action = np.zeros(num_actuators, dtype=np.float32)
         observation, reward, terminated, truncated, info = env.step(dummy_action)
 
         # --- Record data after each step ---
-        recorder.record_step(observation, env.data.ctrl, reward, terminated, info)
+        recorder.record_step(observation, dummy_action, reward, terminated, info)
 
         if terminated:
             logging.info(f"Episode finished. Final reward: {reward}")
@@ -177,10 +176,10 @@ def visualize_mujoco_env(env):
 
         # Logging information (can be set to DEBUG level for less verbose output)
         logging.debug(f"Observation shape: {observation.shape}")
-        logging.debug(f"Current env.data.ctrl: {env.data.ctrl}") 
+        logging.debug(f"Current dummy_action: {dummy_action}") 
         logging.debug(f"Current reward: {reward}")
         
-        print(f"Current reward: {reward}") # Keeping your print for direct feedback
+        print(f"Current reward: {reward} Current actions: {dummy_action} ") # Keeping your print for direct feedback
 
     cv2.destroyAllWindows()
     env.close() # Ensure the environment resources are properly released
@@ -195,7 +194,7 @@ if __name__ == "__main__":
 
     try:
         # Create an instance of your custom environment
-        env = MujocoRobotArmEnv(model_path=model_xml_path, roughness_penalty_scale=100, moving_rate=5e-6) 
+        env = MujocoRobotArmEnv(model_path=model_xml_path, roughness_penalty_scale=100, moving_rate=5e-4) 
         
         # Run the visualization loop
         visualize_mujoco_env(env)

@@ -84,7 +84,22 @@ class MujocoRobotArmEnv(gym.Env):
             # some little movement = action - data.ctrl 
             # So the smooth this little movement we apply the moving_rate 
             # And it all goes data.ctrl = action = data.ctrl + little_movement = data.ctrl + (action- data.ctrl) * moving_rate 
-            self.data.ctrl[:] = self.data.ctrl + (action - self.data.ctrl) * (self.moving_rate ** 0.5)
+            # But it can be kinda bed
+            # So its better to change to the 
+            # data.ctrl = action = data.ctrl + little_movement = data.ctrl + min((action- data.ctrl), moving_rate) 
+            # Compute per-joint difference between desired action and current control
+
+            # But since there is also might be negative little moovement, its better to use clip, which work on both sides
+            diff = action - self.data.ctrl  
+
+            # Maximum change per step
+            alpha = self.moving_rate ** 0.5  
+
+            # Clamp each component of diff to [-alpha, +alpha]
+            capped = np.clip(diff, -alpha, alpha)  
+
+            # Apply the capped update
+            self.data.ctrl[:] = self.data.ctrl + capped
 
             mujoco.mj_step(self.model, self.data)
         except Exception as e:
