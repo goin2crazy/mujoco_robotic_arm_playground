@@ -6,6 +6,7 @@ import datetime # Import datetime for unique filenames
 
 # Make sure MujocoRobotArmEnv is importable from your current directory or path
 from robo_env import MujocoRobotArmEnv 
+from states import *
 
 # --- New DataRecorder Class ---
 class DataRecorder:
@@ -61,9 +62,6 @@ class DataRecorder:
         except Exception as e:
             logging.error(f"Error saving data to {filepath}: {e}")
 
-# --- End DataRecorder Class ---
-
-
 def visualize_mujoco_env(env):
     """
     Visualizes the MuJoCo robot arm environment using OpenCV and allows control with keyboard.
@@ -73,7 +71,7 @@ def visualize_mujoco_env(env):
     logging.info("Starting MuJoCo environment visualization.")
 
     # Initialize the data recorder
-    recorder = DataRecorder()
+    recorder = DataRecorder(save_dir="recorded_data\distance_reward_fn")
 
     # Reset the environment to get the initial observation and info
     observation, info = env.reset()
@@ -194,7 +192,11 @@ if __name__ == "__main__":
 
     try:
         # Create an instance of your custom environment
-        env = MujocoRobotArmEnv(model_path=model_xml_path, roughness_penalty_scale=100, moving_rate=5e-4) 
+        env = MujocoRobotArmEnv(model_path=model_xml_path, 
+                                roughness_penalty_scale=100, 
+                                moving_rate=5e-4,
+                                reward_fn=reward_function_grasp_custom
+                                ) 
         
         # Run the visualization loop
         visualize_mujoco_env(env)

@@ -59,7 +59,6 @@ class MujocoRobotArmEnv(gym.Env):
 
         self._time = 0  # Track the current time in the simulation.
         self.egg_start_pos = None # store the initial position of the egg
-        self.current_dist = 3
         self.moving_rate = moving_rate
 
     def step(self, action):
@@ -114,7 +113,7 @@ class MujocoRobotArmEnv(gym.Env):
         observation = get_observation(self.model, self.data)
 
         # Calculate the reward.
-        reward, self.current_dist = self.reward_fn(self.model, self.data) #TODO prev_dist
+        reward, self.last_dist = self.reward_fn(self.model, self.data, self.last_dist)
         reward = reward * self.reward_fn_scale
 
         # smooother actions - penaltie for too rought actions 
@@ -170,6 +169,7 @@ class MujocoRobotArmEnv(gym.Env):
         # Get the initial observation.
         observation = get_observation(self.model, self.data)
         self.last_action = self.data.ctrl
+        self.last_dist=0
 
         info = {}  # Add any relevant info here
 
