@@ -94,85 +94,67 @@ def load_multiple_trajectories(directory_path: str) -> Optional[Dict[str, np.nda
     
     return combined_demonstrations
 
-def behavioral_cloning_pretraining(
+    
+def behavioral_cloning_with_critic(
     student_policy: BasePolicy,
-    env: gym.Env,
     demonstrations: dict,
+    gamma: float = 0.99,
     epochs: int = 100,
-    learning_rate: float = 3e-4,
+    lr: float = 3e-4,
     batch_size: int = 64,
+    value_coef: float = 0.5,     # weight of critic loss
 ):
-    """
-    Pre-trains the policy using behavioral cloning (BC).
-
-    This function is updated based on robust practices for handling different
-    action spaces in Stable Baselines3.
-
-    :param student_policy: The policy to be trained.
-    :param env: The Gymnasium environment.
-    :param demonstrations: A dictionary containing 'observations' and 'controls' (actions).
-    :param epochs: The number of training epochs.
-    :param learning_rate: The learning rate for the optimizer.
-    :param batch_size: The batch size for training.
-    """
-    print("\n--- Starting Behavioral Cloning Pre-training ---")
-    
     device = student_policy.device
-    
-    # --- 1. Create DataLoader from demonstrations ---
-    obs = th.tensor(demonstrations['observations'], dtype=th.float32)
-    # 'controls' from your file are the 'actions' for the policy
-    actions = th.tensor(demonstrations['controls'], dtype=th.float32)
 
-    dataset = TensorDataset(obs, actions)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-    
-    # --- 2. Select the appropriate loss function based on the action space ---
-    if isinstance(env.action_space, gym.spaces.Box):
-        # Continuous action space
-        criterion = nn.MSELoss()
-        print("Using MSELoss for continuous action space.")
-    else:
-        # Discrete action space
-        criterion = nn.CrossEntropyLoss()
-        print("Using CrossEntropyLoss for discrete action space.")
-        
-    # --- 3. Setup optimizer ---
-    optimizer = optim.Adam(student_policy.parameters(), lr=learning_rate)
-    
-    # --- 4. Training loop ---
-    student_policy.train() # Set the policy to training mode
+    # Prepare data
+    obs = th.tensor(demonstrations['observations'], dtype=th.float32).to(device)
+    actions = th.tensor(demonstrations['controls'], dtype=th.float32).to(device)
+    rewards = th.tensor(demonstrations['rewards'], dtype=th.float32).to(device)
 
+    # 1) Compute discounted returns for each time‑step
+    returns = []
+    discounted_sum = 0
+    for r in rewards.flip(0):
+        discounted_sum = r + gamma * discounted_sum
+        returns.insert(0, discounted_sum)
+    returns = th.tensor(returns, dtype=th.float32).unsqueeze(-1).to(device)
+
+    dataset = TensorDataset(obs, actions, returns)
+    loader  = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+    # Losses & optimizer
+    actor_criterion  = nn.MSELoss()  # or CrossEntropyLoss for discrete
+    critic_criterion = nn.MSELoss()
+    optimizer = optim.Adam(student_policy.parameters(), lr=lr)
+
+    student_policy.train()
     for epoch in range(epochs):
-        total_loss = 0
-        for batch_obs, batch_actions in dataloader:
-            batch_obs = batch_obs.to(device)
-            batch_actions = batch_actions.to(device)
+        total_actor_loss = 0
+        total_critic_loss = 0
 
+        for b_obs, b_acts, b_returns in loader:
             optimizer.zero_grad()
-            
-            # --- Get action predictions from the policy ---
-            if isinstance(env.action_space, gym.spaces.Box):
-                # For PPO/A2C with continuous actions, the policy forward pass
-                # returns (actions, values, log_probs). We only need the actions.
-                action_prediction, _, _ = student_policy(batch_obs)
-            else:
-                # For discrete actions, we get the distribution and then the logits
-                # to compare against the expert actions (which are class indices).
-                dist = student_policy.get_distribution(batch_obs)
-                action_prediction = dist.distribution.logits
-                # Target for CrossEntropyLoss should be long type
-                batch_actions = batch_actions.long()
 
-            loss = criterion(action_prediction, batch_actions)
-            
+            # Forward pass: actor + critic
+            # For SB3 policies: forward returns (actions, values, log_probs)
+            act_pred, value_pred, _ = student_policy(b_obs)
+
+            # 2) Actor loss (behavioral cloning)
+            actor_loss = actor_criterion(act_pred, b_acts)
+
+            # 3) Critic loss: fit value_pred to returns
+            critic_loss = critic_criterion(value_pred, b_returns)
+
+            # 4) Combined loss
+            loss = actor_loss + value_coef * critic_loss
             loss.backward()
             optimizer.step()
-            
-            total_loss += loss.item()
-        
-        avg_loss = total_loss / len(dataloader)
-        if (epoch + 1) % 10 == 0:
-            print(f"Epoch [{epoch+1}/{epochs}], BC Loss: {avg_loss:.6f}")
 
-    print("--- Behavioral Cloning Finished ---\n")
+            total_actor_loss  += actor_loss.item()
+            total_critic_loss += critic_loss.item()
+
+        if (epoch + 1) % 10 == 0:
+            print(f"Epoch {epoch+1}/{epochs}, "
+                  f"Actor Loss: {total_actor_loss/len(loader):.5f}, "
+                  f"Critic Loss: {total_critic_loss/len(loader):.5f}")
+    print("✅ BC + Critic pretraining complete!\n")

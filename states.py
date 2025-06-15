@@ -81,6 +81,7 @@ def target_touching_reward(model, data):
     reward = 0.0
     reward += 20 * check_contact(model, data, "egg", "arm_finger_right")
     reward += 20 * check_contact(model, data, "egg", "arm_finger_left")
+
     return reward
 
 def reward_function_grasp(model, data, old_distance, *args, **kwargs):
