@@ -71,7 +71,7 @@ def visualize_mujoco_env(env):
     logging.info("Starting MuJoCo environment visualization.")
 
     # Initialize the data recorder
-    recorder = DataRecorder(save_dir="recorded_data\distance_reward_fn")
+    recorder = DataRecorder(save_dir="recorded_data\distance_rewards_obs_velocities")
 
     # Reset the environment to get the initial observation and info
     observation, info = env.reset()
@@ -133,12 +133,12 @@ def visualize_mujoco_env(env):
             if num_actuators > 3: 
                 dummy_action[3] = np.clip(dummy_action[3] - (smoothness_coef * control_change_amount), min_ctrl[3], max_ctrl[3])
             if num_actuators > 4: # If there's a 5th actuator for the other finger
-                dummy_action[4] = np.clip(dummy_action[4] - (smoothness_coef * control_change_amount), min_ctrl[4], max_ctrl[4])
+                dummy_action[4] = np.clip(dummy_action[4] + (smoothness_coef * control_change_amount), min_ctrl[4], max_ctrl[4])
         elif key == ord('v'):  # Increase fingers
             if num_actuators > 3:
                 dummy_action[3] = np.clip(dummy_action[3] + (smoothness_coef * control_change_amount), min_ctrl[3], max_ctrl[3])
             if num_actuators > 4:
-                dummy_action[4] = np.clip(dummy_action[4] + (smoothness_coef * control_change_amount), min_ctrl[4], max_ctrl[4])
+                dummy_action[4] = np.clip(dummy_action[4] - (smoothness_coef * control_change_amount), min_ctrl[4], max_ctrl[4])
 
         # --- New: Keybind for Saving Data ---
         elif key == ord('g'): # Press 'S' to save the current trajectory
@@ -195,7 +195,7 @@ if __name__ == "__main__":
         env = MujocoRobotArmEnv(model_path=model_xml_path, 
                                 roughness_penalty_scale=100, 
                                 moving_rate=5e-4,
-                                reward_fn=reward_function_grasp_custom
+                                reward_fn=reward_function_grasp_v2
                                 ) 
         
         # Run the visualization loop
