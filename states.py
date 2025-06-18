@@ -79,14 +79,30 @@ def target_touching_reward(model, data):
         float: The calculated touching reward.
     """
     reward = 0.0
-    reward += 20 * check_contact(model, data, "egg", "arm_finger_right")
-    reward += 20 * check_contact(model, data, "egg", "arm_finger_left")
-
-    # Okat, robot trained to touch the egg but its added some issues, robot didnt touched egg in approaching position 
-    # Its fingers where closed which is obviously not good 
-    # So we add rewards to +20 if is fingers distance are away from eachother which will be activated only 
-
+    reward += 100 * (check_contact(model, data, "egg", "arm_finger_right") * check_contact(model, data, "egg", "arm_finger_left"))
     return reward
+
+def egg_in_air_reward(model, data): 
+    reward = 0 
+
+    if (check_contact(model, data, "egg", "arm_finger_right") and check_contact(model, data, "egg", "arm_finger_left")): 
+        if (check_contact(model, data, "egg", "floor") == False): 
+            # reward for holding in air 
+            reward += 50 
+
+            
+            egg_id = get_body_id(model, "egg")
+            egg_pos = np.array(data.xpos[egg_id])
+
+            target_id = get_body_id(model, "egg_base_target")
+            target_pos = np.array(data.xpos[target_id])
+
+            dist = np.linalg.norm(egg_pos - target_pos)
+
+            approaching_reward = min(1/dist, 100) * 10
+            reward += approaching_reward
+    
+    return reward 
 
 def reward_function_grasp(model, data, old_distance, *args, **kwargs):
     """
@@ -184,5 +200,6 @@ def reward_function_grasp_v2(model, data, old_distance, *args, **kwargs):
 
     # Calculate target touching reward
     reward += target_touching_reward(model, data)
+    reward += egg_in_air_reward(model, data)
 
     return reward, current_distance_mean
