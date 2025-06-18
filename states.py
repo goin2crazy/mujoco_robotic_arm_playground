@@ -82,6 +82,10 @@ def target_touching_reward(model, data):
     reward += 20 * check_contact(model, data, "egg", "arm_finger_right")
     reward += 20 * check_contact(model, data, "egg", "arm_finger_left")
 
+    # Okat, robot trained to touch the egg but its added some issues, robot didnt touched egg in approaching position 
+    # Its fingers where closed which is obviously not good 
+    # So we add rewards to +20 if is fingers distance are away from eachother which will be activated only 
+
     return reward
 
 def reward_function_grasp(model, data, old_distance, *args, **kwargs):

@@ -296,20 +296,28 @@ def visualize_mujoco_env_vanilla(env):
 
 if __name__ == "__main__":
     # Configure logging
+    MODE = 0
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
     # Define the path to your MuJoCo model
     model_xml_path = "egg_final.xml"
 
     try:
-        # Create an instance of your custom environment
-        env = MujocoRobotArmEnv_Vanilla(model_path=model_xml_path, 
-                                moving_rate=5e-3,
-                                reward_fn=reward_function_grasp_v2
-                                ) 
+        if MODE == 0: 
+            env = MujocoRobotArmEnv(model_path=model_xml_path, 
+                                    reward_fn=reward_function_grasp_v2)
         
-        # Run the visualization loop
-        visualize_mujoco_env_vanilla(env)
+            visualize_mujoco_env(env)
+
+        elif MODE == 1: 
+            # Create an instance of your custom environment
+            env = MujocoRobotArmEnv_Vanilla(model_path=model_xml_path, 
+                                    moving_rate=5e-3,
+                                    reward_fn=reward_function_grasp_v2
+                                    ) 
+            
+            # Run the visualization loop
+            visualize_mujoco_env_vanilla(env)
 
     except Exception as e:
         logging.critical(f"An error occurred during environment initialization or visualization: {e}")
