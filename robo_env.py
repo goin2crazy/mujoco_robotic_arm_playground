@@ -17,10 +17,7 @@ class MujocoRobotArmEnv(gym.Env):
 
     def __init__(self, 
                  model_path="your_model.xml", 
-                 moving_rate=5e-3,
-                 reward_fn = None, 
-                 reward_fn_scale =1, 
-                 roughness_penalty_scale=1, 
+                 moving_rate=5e-3, 
                  additional_reward_scale=1, 
                  ):  # Add model_path
         """
@@ -37,11 +34,9 @@ class MujocoRobotArmEnv(gym.Env):
             raise ValueError(f"Error loading MuJoCo model from {model_path}: {e}")
 
         self.data = mujoco.MjData(self.model)
-        self.reward_fn = reward_function_grasp if reward_fn ==None else reward_fn
 
         self.steps_made_in_episode = 0         
-        self.reward_fn_scale = reward_fn_scale 
-        self.roughness_penalty_scale = roughness_penalty_scale
+
         self.additional_reward_scale = additional_reward_scale
         # Define action and observation spaces.  CRITICAL.
         # Example:  Action space is the joint torque limits.
@@ -93,7 +88,7 @@ class MujocoRobotArmEnv(gym.Env):
             diff = action - self.data.ctrl  
 
             # Maximum change per step
-            alpha = self.moving_rate ** 0.5  
+            alpha = self.moving_rate
 
             # Clamp each component of diff to [-alpha, +alpha]
             capped = np.clip(diff, -alpha, alpha)  
@@ -113,15 +108,15 @@ class MujocoRobotArmEnv(gym.Env):
         # Get the observation.
         observation = get_observation(self.model, self.data)
 
-        # Calculate the reward.
-        reward, self.last_dist = self.reward_fn(self.model, self.data, self.last_dist)
-        reward = reward * self.reward_fn_scale
+        reward = 0
+        # Get reward and termination from unified function
+        total_reward, terminated, info = improved_reward_function(
+            self.model, self.data,
+            old_target_dist=self.last_target_dist, 
+            egg_initial_z=self.egg_initial_z, 
+        )
 
-        # smooother actions - penaltie for too rought actions 
-        reward = adjust_reward_for_smoothness(reward, action, self.last_action, 
-                                              moving_smoothness=self.moving_rate, 
-                                              penalty_multiplier=10 * self.roughness_penalty_scale)
-
+        self.last_target_dist = info['target_dist']
         self.last_action = action
 
         # Check for the end of the session.
@@ -132,14 +127,16 @@ class MujocoRobotArmEnv(gym.Env):
         else: 
             self.steps_made_in_episode+=1 
 
+        reward += total_reward
         reward += additional_reward * self.additional_reward_scale
 
         info = {
-            # "egg_at_start": egg_at_the_start(self.model, self.data),
-            # "egg_on_floor": egg_on_the_floor(self.model, self.data),
-            # "egg_at_holding": egg_at_the_holding(self.model, self.data),
-            # "egg_in_target": egg_in_target(self.model, self.data),
-            # "time": self._time,
+            "egg_at_start": egg_at_the_start(self.model, self.data),
+            "egg_on_floor": egg_on_the_floor(self.model, self.data),
+            "egg_at_holding": egg_at_the_holding(self.model, self.data),
+            "egg_to_target": info['target_dist'],
+            "egg_to_grip": info['grip_dist'],
+            "time": self._time,
         }
 
         # Important:  Return a valid tuple, even if there's an error.
@@ -163,14 +160,18 @@ class MujocoRobotArmEnv(gym.Env):
         mujoco.mj_forward(self.model, self.data) # Forward simulation to ensure initial state is correct
 
         self._time = 0  # Reset time
-        self.egg_start_pos = self.data.xpos[get_body_id(self.model, "egg")][:2].copy()  # stores the initial xy position of the egg.
-        if np.any(np.isnan(self.egg_start_pos)):
-            self.egg_start_pos = np.array([0, 0])
+        self.egg_start_pos = get_body_pos(self.model, self.data, body_name="egg")
 
         # Get the initial observation.
         observation = get_observation(self.model, self.data)
         self.last_action = self.data.ctrl
         self.last_dist=0
+        self.egg_initial_z = get_body_pos(model=self.model, data = self.data, body_name="egg")[2]
+
+        self.last_target_dist = np.linalg.norm(self.egg_start_pos - get_body_pos(model = self.model, 
+                                                                                data= self.data,
+                                                                                body_name= 'egg_base_target'))
+        
 
         info = {}  # Add any relevant info here
 

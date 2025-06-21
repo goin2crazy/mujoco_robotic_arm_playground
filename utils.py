@@ -109,6 +109,22 @@ def egg_in_target(model, data):
     """
     return check_contact(model, data, "egg", "egg_base_target")
 
+    
+def get_body_pos(model, data, body_name): 
+            
+    obj_id = get_body_id(model, body_name)
+    obj_pos = np.array(data.xpos[obj_id])
+    return obj_pos 
+
+def contact_force(model, data, body1, body2):
+    for contact in data.contact:
+        body1_id = get_body_id(model, body1)
+        body2_id = get_body_id(model, body2)
+        if (contact.geom1 == body1_id and contact.geom2 == body2_id) or \
+           (contact.geom1 == body2_id and contact.geom2 == body1_id):
+            return contact.force
+    return 0.0
+
 def read_recorded_trajectory(filepath):
     """
     Reads a single .npz trajectory file and prints its contents.

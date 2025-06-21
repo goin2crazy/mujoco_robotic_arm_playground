@@ -11,7 +11,7 @@ def check_session_end(model, data, steps, egg_start_pos,
                      target_time_start=None):
     """Enhanced session termination with curriculum awareness"""
     # Timeout check
-    if steps > 18_000:
+    if steps > 3_000:
         logging.info("Session ended due to time limit.")
         return True, 0
 
@@ -27,7 +27,7 @@ def check_session_end(model, data, steps, egg_start_pos,
     for body_name in arm_parts_lst:
         if body_name not in exclude_lst and check_contact(model, data, "floor", body_name):
             logging.info(f"Session ended: {body_name} touched floor.")
-            return False, -10
+            return False, -2
 
     # Target success check
     if egg_in_target(model, data):
@@ -203,3 +203,66 @@ def reward_function_grasp_v2(model, data, old_distance, *args, **kwargs):
     reward += egg_in_air_reward(model, data)
 
     return reward, current_distance_mean
+
+
+def improved_reward_function(model, data, 
+                             old_target_dist, 
+                             egg_initial_z):
+
+    # Get positions
+    egg_pos = get_body_pos(model, data, "egg")
+    target_pos = get_body_pos(model, data, "egg_base_target")
+    grip_pos = (get_body_pos(model, data, "arm_finger_left") + 
+               get_body_pos(model, data, "arm_finger_right")) / 2
+    
+    # 1. REACHING STAGE REWARDS
+    grip_to_egg_dist = np.linalg.norm(grip_pos - egg_pos)
+    reach_reward = 1.0 / (0.3 + grip_to_egg_dist)  # Encourage approach
+    
+    # 2. GRASPING REWARDS (continuous)
+    left_contact = contact_force(model, data, "egg", "arm_finger_left")
+    right_contact = contact_force(model, data, "egg", "arm_finger_right")
+    grip_force = (left_contact + right_contact)
+    grasp_reward = np.clip(grip_force, 0, 10)  # Max 10 reward for firm grip
+    
+    # 3. LIFTING REWARDS
+    egg_height = egg_pos[2] - egg_initial_z
+    lift_reward = 0
+    if grip_force > 1.0:  # Only if grasped
+        lift_reward = 5 * egg_height  # Encourage lifting
+    
+    # 4. TRANSPORT REWARDS
+    egg_to_target_dist = np.linalg.norm(egg_pos - target_pos)
+    transport_reward = 0
+    if grip_force > 1.0:  # Only if grasped
+        # Progress reward (velocity toward target)
+        progress = old_target_dist - egg_to_target_dist
+        transport_reward = 10 * progress
+        
+        # Success bonus
+        if egg_to_target_dist < 0.3:
+            transport_reward += 100
+    
+    # 5. GRIP MAINTENANCE (critical!)
+    grip_stability = 1.0 / (0.1 + abs(left_contact - right_contact))
+    
+    # 6. TERMINAL CONDITIONS
+    done = False
+    if egg_pos[2] < egg_initial_z - 0.1:  # Egg dropped
+        done = True
+    elif egg_to_target_dist < 0.02:  # Success
+        done = True
+    
+    # Combine rewards with stage weighting
+    total_reward = (
+        0.5 * reach_reward +
+        2.0 * grasp_reward +
+        1.0 * lift_reward +
+        3.0 * transport_reward +
+        0.5 * grip_stability
+    )
+    
+    return total_reward, done, {
+        "grip_dist": grip_to_egg_dist,
+        "target_dist": egg_to_target_dist
+    }

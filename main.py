@@ -304,8 +304,7 @@ if __name__ == "__main__":
 
     try:
         if MODE == 0: 
-            env = MujocoRobotArmEnv(model_path=model_xml_path, 
-                                    reward_fn=reward_function_grasp_v2)
+            env = MujocoRobotArmEnv(model_path=model_xml_path)
         
             visualize_mujoco_env(env)
 
