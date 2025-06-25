@@ -5,7 +5,7 @@ import os # Import os for path manipulation
 import datetime # Import datetime for unique filenames
 
 # Make sure MujocoRobotArmEnv is importable from your current directory or path
-from robo_env import MujocoRobotArmEnv, MujocoRobotArmEnv_Vanilla
+from robo_env import MujocoRobotArmEnvReachTask
 from states import *
 
 # --- New DataRecorder Class ---
@@ -161,7 +161,6 @@ def visualize_mujoco_env(env):
         # The environment's step method will now use these pre-set control values
         # when it calls mujoco.mj_step(), and then calculate rewards, observations, etc.
         observation, reward, terminated, truncated, info = env.step(dummy_action)
-
         # --- Record data after each step ---
         recorder.record_step(observation, dummy_action, reward, terminated, info)
 
@@ -173,11 +172,8 @@ def visualize_mujoco_env(env):
             recorder.reset() # Also reset the recorder for a new episode
 
         # Logging information (can be set to DEBUG level for less verbose output)
-        logging.debug(f"Observation shape: {observation.shape}")
-        logging.debug(f"Current dummy_action: {dummy_action}") 
-        logging.debug(f"Current reward: {reward}")
         
-        print(f"Current reward: {reward} Current actions: {dummy_action} ") # Keeping your print for direct feedback
+        print(f"Current reward: {reward}") # Keeping your print for direct feedback
 
     cv2.destroyAllWindows()
     env.close() # Ensure the environment resources are properly released
@@ -300,23 +296,19 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
     # Define the path to your MuJoCo model
-    model_xml_path = "egg_final.xml"
+    model_xml_path = "reach_task_env.xml"
 
-    try:
-        if MODE == 0: 
-            env = MujocoRobotArmEnv(model_path=model_xml_path)
+    if MODE == 0: 
+        env = MujocoRobotArmEnvReachTask(model_path=model_xml_path)
+    
+        visualize_mujoco_env(env)
+
+    # elif MODE == 1: 
+    #     # Create an instance of your custom environment
+    #     env = MujocoRobotArmEnv_Vanilla(model_path=model_xml_path, 
+    #                             moving_rate=5e-3,
+    #                             reward_fn=improved_reward_function_reach_task
+    #                             ) 
         
-            visualize_mujoco_env(env)
-
-        elif MODE == 1: 
-            # Create an instance of your custom environment
-            env = MujocoRobotArmEnv_Vanilla(model_path=model_xml_path, 
-                                    moving_rate=5e-3,
-                                    reward_fn=reward_function_grasp_v2
-                                    ) 
-            
-            # Run the visualization loop
-            visualize_mujoco_env_vanilla(env)
-
-    except Exception as e:
-        logging.critical(f"An error occurred during environment initialization or visualization: {e}")
+    #     # Run the visualization loop
+    #     visualize_mujoco_env_vanilla(env)
