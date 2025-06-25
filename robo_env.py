@@ -46,7 +46,7 @@ class MujocoRobotArmEnvReachTask(gym.Env):
 
 
         self.action_space = spaces.Box(low=-1, high=1, shape=self.data.ctrl.shape, dtype=np.float32) # Placeholder
-        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=np.array(self.get_observation(self.model, self.data).values()).shape, dtype=np.float64) # Placeholder
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=self.get_observation(self.model, self.data).shape, dtype=np.float64) # Placeholder
 
         self.renderer = None  # Initialize renderer lazily
         self.moving_rate = moving_rate
@@ -108,8 +108,7 @@ class MujocoRobotArmEnvReachTask(gym.Env):
             return observation, 0, True, False, {"error": str(e)}
 
         # Get the observation.
-        observation_dict = self.get_observation(self.model, self.data)
-        observation = np.array(observation_dict.values())
+        observation= self.get_observation(self.model, self.data)
 
         reward = 0
         # Get reward and termination from unified function
@@ -130,7 +129,7 @@ class MujocoRobotArmEnvReachTask(gym.Env):
         reward += additional_reward * self.additional_reward_scale
 
         info = {
-            **observation_dict
+
         }
 
         # Important:  Return a valid tuple, even if there's an error.
@@ -157,10 +156,9 @@ class MujocoRobotArmEnvReachTask(gym.Env):
             mujoco.mj_forward(self.model, self.data) # Forward simulation to ensure initial state is correct
 
         # Get the initial observation.
-        observation_dict = self.get_observation(self.model, self.data)
-        observation = np.array(observation_dict.values())
+        observation = self.get_observation(self.model, self.data)
 
-        info = {**observation_dict}  # Add any relevant info here
+        info = {}  # Add any relevant info here
 
         return observation, info
 

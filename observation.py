@@ -5,8 +5,20 @@ from utils import (get_body_id,
                    get_body_pos)
 # If get_body_id or other functions are not in utils, adjust the import accordingly.
 
-def get_observation_reach_task(model, data, body_to_reach_name, joint_ids=[5, 6, 7, 8, 9, 10]):
-    observation = {}
+def get_observation_reach_task(model, data, body_to_reach_name, joint_ids=[6, 7, 8, 9, 10]):
+    """
+    Calculates and returns observations as a list.
+
+    Args:
+        model: The MuJoCo model object.
+        data: The MuJoCo data object.
+        body_to_reach_name (str): The name of the body to reach.
+        joint_ids (list): A list of joint IDs for the arm.
+
+    Returns:
+        list: A list containing the calculated observations.
+    """
+    observation = []
 
     reach_body_id = get_body_id(model, body_to_reach_name)
     finger_left_id = get_body_id(model, "arm_finger_left")
@@ -17,31 +29,31 @@ def get_observation_reach_task(model, data, body_to_reach_name, joint_ids=[5, 6,
         reach_body_position = data.xpos[reach_body_id].copy()
         reach_body_position_valid = True
 
-    # # *IT WOULD BE MORE USEFULL TO USE THE DISTANCE BETWEEN BODY_TO_REACH AND FINGERS (Implemented as vector components)
+    # Vector from body_to_reach to left finger (dx, dy, dz)
     if reach_body_position_valid and finger_left_id != -1:
         finger_left_position = data.xpos[finger_left_id].copy()
-        vec_reach_body_to_finger_left = reach_body_position - finger_left_position # Calculate vector difference
-        observation['vec_reach_body_to_finger_left'] = vec_reach_body_to_finger_left
+        vec_reach_body_to_finger_left = reach_body_position - finger_left_position
+        observation.extend(vec_reach_body_to_finger_left.tolist()) # Convert numpy array to list and extend
     else:
-        observation['vec_reach_body_to_finger_left'] = [0.0, 0.0, 0.0] # Default vector if body_to_reach or finger is missing
+        observation.extend([0.0, 0.0, 0.0])
 
-    # # 5. Vector from body_to_reach to right finger (dx, dy, dz)
+    # Vector from body_to_reach to right finger (dx, dy, dz)
     if reach_body_position_valid and finger_right_id != -1:
         finger_right_position = data.xpos[finger_right_id].copy()
-        vec_reach_body_to_finger_right = reach_body_position - finger_right_position # Calculate vector difference
-        observation['vec_reach_body_to_finger_right'] = vec_reach_body_to_finger_right
+        vec_reach_body_to_finger_right = reach_body_position - finger_right_position
+        observation.extend(vec_reach_body_to_finger_right.tolist()) # Convert numpy array to list and extend
     else:
-        observation['vec_reach_body_to_finger_right'] = [0.0, 0.0, 0.0] # Default vector if body_to_reach or finger is missing
+        observation.extend([0.0, 0.0, 0.0])
 
-    # 8. Arm joint velocities
-    # Ensure the slice [:7] correctly corresponds to your arm's joints in qvel
-    
+    # Arm joint velocities
     arm_joint_velocities = data.qvel[joint_ids].copy()
-    observation['arm_joints_velocities'] = (arm_joint_velocities)
-    
+    observation.extend(arm_joint_velocities.tolist()) # Convert numpy array to list and extend
+
+    # Arm joint angles
     arm_joint_angles = data.qpos[joint_ids].copy()
-    observation['arm_joints_angles'] = (arm_joint_angles)
-    return observation
+    observation.extend(arm_joint_angles.tolist()) # Convert numpy array to list and extend
+
+    return np.array(observation, dtype=np.float16)
     
 
 def get_observation_grab_transport_task(model, data):
