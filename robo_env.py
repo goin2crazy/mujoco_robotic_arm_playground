@@ -98,7 +98,7 @@ class MujocoRobotArmEnvReachTask(gym.Env):
                 random_z = random.uniform(-1.0, 1.0)
 
                 # Set the new random target
-                self.next_random_target_position = [random_x, random_y, random_z]
+                self.next_random_target_position = [random_x, random_z, random_y]
                 
                 # Record the starting position for the current transition
                 self.start_transition_position = list(self.current_target_position) # Make a copy
