@@ -107,8 +107,7 @@ class MujocoRobotArmEnvReachTask(gym.Env):
                 self.transition_active = True
                 self.steps_in_transition = 0
                 
-                print(f"New random target set to: {self.next_random_target_position} at step {self.steps_made_in_episode}")
-
+                
             # If a transition is active, perform linear interpolation
             if self.transition_active:
                 # Increment the steps within the current transition
@@ -129,7 +128,6 @@ class MujocoRobotArmEnvReachTask(gym.Env):
                     self.transition_active = False
                     # Ensure the target snaps exactly to the final position to avoid floating point errors
                     self.current_target_position = list(self.next_random_target_position)
-                    print(f"Transition completed to: {self.current_target_position} at step {self.steps_made_in_episode}")
 
             # Increment the total steps made in the episode
             self.steps_made_in_episode += 1
