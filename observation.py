@@ -1,3 +1,4 @@
+import mujoco
 import numpy as np
 # Assuming 'utils.py' contains get_body_id and the task state functions:
 # egg_at_the_start, egg_on_the_floor, egg_at_the_holding, egg_in_target
@@ -5,7 +6,7 @@ from utils import (get_body_id,
                    get_body_pos)
 # If get_body_id or other functions are not in utils, adjust the import accordingly.
 
-def get_observation_reach_task(model, data, body_to_reach_name, joint_ids=[6, 7, 8, 9, 10]):
+def get_observation_reach_task(model, data, reach_to_body_pos, joint_ids=[6, 7, 8, 9, 10]):
     """
     Calculates and returns observations as a list.
 
@@ -20,14 +21,11 @@ def get_observation_reach_task(model, data, body_to_reach_name, joint_ids=[6, 7,
     """
     observation = []
 
-    reach_body_id = get_body_id(model, body_to_reach_name)
     finger_left_id = get_body_id(model, "arm_finger_left")
     finger_right_id = get_body_id(model, "arm_finger_right")
 
-    reach_body_position_valid = False
-    if reach_body_id != -1:
-        reach_body_position = data.xpos[reach_body_id].copy()
-        reach_body_position_valid = True
+    reach_body_position = reach_to_body_pos
+    reach_body_position_valid = True
 
     # Vector from body_to_reach to left finger (dx, dy, dz)
     if reach_body_position_valid and finger_left_id != -1:
@@ -56,44 +54,40 @@ def get_observation_reach_task(model, data, body_to_reach_name, joint_ids=[6, 7,
     return np.array(observation, dtype=np.float16)
     
 
-def get_observation_grab_transport_task(model, data):
-    """
-    Returns the observation vector for the RL agent.
+def get_observation_grab_transport_task(model, data, target_body_name:str='egg', ):
+    # Lets init the observations list 
+    obs = []
 
-    The observation includes information about the egg, fingers, arm, target,
-    and contact forces.
-    # """
+    # first lets add there the basic obsrevations, because there we are always reaching to propably egg 
+    target_position = get_body_pos(model, data, target_body_name)
+    reach_obs = get_observation_reach_task(model=model, data=data, reach_to_body_pos=target_position)
+    obs.extend(reach_obs)
 
-    # # Get body IDs using the provided utility function
-    # target_id = get_body_id(model, "egg_base_target")
+    # lets add the distance from left finger to right finger to let agent see how much it is open 
+    left_finger_pos = get_body_pos(model, data, "arm_finger_left")
+    right_finger_pos = get_body_pos(model, data, "arm_finger_right")
+    fingers_dist = np.linalg.norm(left_finger_pos -right_finger_pos)
+    obs.append(fingers_dist)
 
-    # # Initialize an empty list to hold the observation values.
-    # observation = []
+    # gripper center (bese, roboarm fingers located on)
+    gripper_centre = "arm_handle_1"
+    ee_id = get_body_id(model, gripper_centre)
+    ee_pos = data.xpos[ee_id]
+    ee_vel = data.qvel[ee_id]  # Linear velocity
+    obs.append(ee_vel)
 
-    # # --- Retrieve egg position for distance calculations ---
-    # # We need egg_position even if it's not directly in the observation vector,
-    # # to calculate distances to fingers.
-    # egg_position_valid = False
-    # egg_position = np.array([0.0, 0.0, 0.0]) # Default placeholder
-    # if egg_id != -1:
-    #     egg_position = data.xpos[egg_id].copy()
-    #     egg_position_valid = True
+    # nest (target place to put the egg)
+    nest = "egg_base_target"
+    nest_pos = get_body_pos(model, data, nest)
 
-    # arm_joint_angles = data.qpos[[7, 8, 9, 10, 11, 12]].copy()
-    # observation.extend(arm_joint_angles)
+    obs.extend(nest_pos - ee_pos)
+    obs.extend(nest_pos - target_position)
+    
+    # convert the obs list to array 
+    try: 
+        obs = np.array(obs)
+    except: 
+        print(obs)
+        exit()
 
-    # # 8. Arm joint velocities
-    # # Ensure the slice [:7] correctly corresponds to your arm's joints in qvel
-    # arm_joint_velocities = data.qvel[[7, 8, 9, 10, 11, 12]].copy()
-    # observation.extend(arm_joint_velocities)
-
-    # # 9. Distance between egg and target (in XY plane) - Scalar
-    # if egg_position_valid and target_id != -1:
-    #     target_position = data.xpos[target_id].copy()
-    #     # Calculate distance only in the XY plane
-    #     dist_egg_to_target_xy = egg_position - target_position
-    #     observation.extend(dist_egg_to_target_xy)
-    # else:
-    #     observation.extend([0.0, 0, 0]) # Default distance
-    # return np.array(observation, dtype=np.float64)
-    ...
+    return obs

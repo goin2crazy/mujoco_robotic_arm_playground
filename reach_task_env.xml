@@ -112,14 +112,6 @@
     </body> 
     
     <!-- egg itself -->
-    <body name="body_to_reach" pos="{reach_body_pos_x} {reach_body_pos_z} {reach_body_pos_y}">
-      <geom name="body_to_reach_geom" 
-      size="0.08 0.08 0.08"
-      type="sphere"
-      euler="90 90 0" mass="5"
-      rgba="1 1 1 1"
-      />
-    </body>
   </worldbody>
 
   <actuator>
