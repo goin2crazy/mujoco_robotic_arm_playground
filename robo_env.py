@@ -35,6 +35,26 @@ class MujocoRobotArmEnvReachTask(gym.Env):
         self.model_path = model_path
         self.target_body_name = reach_to_object_name
         self.load_mujoco_env()
+
+                # smooth target position changing 
+        # The current target position, which will be smoothly interpolated
+        # Initialized to a default position
+        self.current_target_position = [0.0, 0.0, 0.0] 
+        
+        # The next random target position that the current_target_position will move towards
+        self.next_random_target_position = [0.0, 0.0, 0.0] 
+        
+        # The position from which the current transition started
+        self.start_transition_position = [0.0, 0.0, 0.0]
+        
+        # Flag to indicate if a smoothing transition is currently active
+        self.transition_active = False
+        
+        # Counter for steps within the current transition phase
+        self.steps_in_transition = 0
+        
+        # The number of steps over which the smoothing transition should occur
+        self.transition_duration = 100 # Example: transition over 100 steps
         
         #initialize the main mujoco env parameters 
         self.data = mujoco.MjData(self.model)
@@ -55,25 +75,7 @@ class MujocoRobotArmEnvReachTask(gym.Env):
         self.min_move = min_move
         self.max_move=max_move
 
-        # smooth target position changing 
-        # The current target position, which will be smoothly interpolated
-        # Initialized to a default position
-        self.current_target_position = [0.0, 0.0, 0.0] 
-        
-        # The next random target position that the current_target_position will move towards
-        self.next_random_target_position = [0.0, 0.0, 0.0] 
-        
-        # The position from which the current transition started
-        self.start_transition_position = [0.0, 0.0, 0.0]
-        
-        # Flag to indicate if a smoothing transition is currently active
-        self.transition_active = False
-        
-        # Counter for steps within the current transition phase
-        self.steps_in_transition = 0
-        
-        # The number of steps over which the smoothing transition should occur
-        self.transition_duration = 100 # Example: transition over 100 steps
+
 
     def get_target_position(self):
             """
