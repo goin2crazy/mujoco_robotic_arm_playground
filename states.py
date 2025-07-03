@@ -8,7 +8,7 @@ def check_session_end(model, data, steps,
                                    "arm_base_2_1", "arm_handle", "arm_handle_1", 
                                    "arm_finger_left", "arm_finger_right",
                                    ],
-                     max_steps=4000):
+                     max_steps=8000):
     """Enhanced session termination with curriculum awareness"""
     # Timeout check
     if steps > max_steps:

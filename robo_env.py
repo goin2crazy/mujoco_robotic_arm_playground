@@ -93,7 +93,7 @@ class MujocoRobotArmEnvReachTask(gym.Env):
                 # x: from -1 to 1
                 random_x = random.uniform(-1.0, 1.0)
                 # y: from -0.2 to 0.3
-                random_y = random.uniform(-0.2, 0.3)
+                random_y = random.uniform(0.5, 0.8)
                 # z: from -1 to 1
                 random_z = random.uniform(-1.0, 1.0)
 
