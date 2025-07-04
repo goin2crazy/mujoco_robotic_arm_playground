@@ -88,7 +88,7 @@ class MujocoRobotArmEnvReachTask(gym.Env):
             # Check if it's time to generate a new random target position
             # This condition ensures a new target is set only when the previous transition (if any) is complete
             # or at the very beginning (steps_made_in_episode == 0)
-            if self.steps_made_in_episode % 450 == 0 and not self.transition_active:
+            if self.steps_made_in_episode % 900 == 0 and not self.transition_active:
                 # Generate new random values for x, y, and z components
                 # x: from -1 to 1
                 random_x = random.uniform(-0.7, 0.7)
