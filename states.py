@@ -42,7 +42,10 @@ def improved_reward_function_reach_task(model, data,
     
     # 1. REACHING STAGE REWARDS
     grip_to_egg_dist = np.linalg.norm(grip_pos - reach_to_body_pos)
+
+    
     reach_reward = 1.0 / (0.3 + grip_to_egg_dist)  # Encourage approach
+    reach_reward += 20 * (grip_to_egg_dist < 0.2)
     return {"reach": reach_reward, "reach_to_object_pos": reach_to_body_pos}
 
 def improved_reward_function_grab_transport(model, 

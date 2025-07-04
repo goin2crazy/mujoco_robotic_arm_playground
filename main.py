@@ -173,7 +173,7 @@ def visualize_mujoco_env(env):
 
         # Logging information (can be set to DEBUG level for less verbose output)
         
-        print(f"Current reward: {reward}, The direction {dummy_action}") # Keeping your print for direct feedback
+        print(f"Current reward: {reward}, The direction {get_body_pos(env.model, env.data, 'arm_handle_1')}") # Keeping your print for direct feedback
 
     cv2.destroyAllWindows()
     env.close() # Ensure the environment resources are properly released
@@ -397,7 +397,7 @@ def visualize_mujoco_env_vanilla(env):
 
 if __name__ == "__main__":
     # Configure logging
-    MODE = 1
+    MODE = 0
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
     # Define the path to your MuJoCo model
